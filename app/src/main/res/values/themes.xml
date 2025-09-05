@@ -1,0 +1,12 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.Behavica" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/colorPrimary</item>
+
+        <item name="android:colorBackground">@color/backgroundColor</item>
+
+        <item name="colorOnBackground">@color/textColorPrimary</item>
+    </style>
+
+    <style name="Theme.Behavica" parent="Base.Theme.Behavica"/>
+</resources>
