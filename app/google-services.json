@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "563356302130",
+    "project_id": "behavica-9bd89",
+    "storage_bucket": "behavica-9bd89.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:563356302130:android:4b56ac2487d1270295752b",
+        "android_client_info": {
+          "package_name": "com.example.behavica"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAZQxHf7s88PmHUPzR6GEdXIbVv37Cq3qg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
