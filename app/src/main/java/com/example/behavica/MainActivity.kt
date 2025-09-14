@@ -2,6 +2,10 @@ package com.example.behavica
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -16,8 +20,9 @@ import com.google.android.material.textfield.TextInputLayout
 import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.abs
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), SensorEventListener  {
 
     private lateinit var userIdLayout: TextInputLayout
     private lateinit var userIdInput: TextInputEditText
@@ -32,7 +37,7 @@ class MainActivity : AppCompatActivity() {
 
     // TouchPoint data class
     private val touchPoints = mutableListOf<TouchPoint>()
-    data class TouchPoint(val x: Float, val y: Float, val timestampTime: String, val target: String)
+    data class TouchPoint(val pressure: Float, val x: Float, val y: Float, val timestampTime: String, val target: String)
 
     // Behavioral data
     private var userIdStartTime: Long = 0
@@ -48,6 +53,13 @@ class MainActivity : AppCompatActivity() {
     private var checkboxClickTime: Long = 0
     private var submitClickTime: Long = 0
     private var formStartTime: Long = 0
+
+    // Hand detection
+    private var handHeld: String = "unknown"
+    private val handBuffer = mutableListOf<Triple<Float, Float, Float>>()
+    private lateinit var gravity: FloatArray
+    private lateinit var sensorManager: SensorManager
+    private var accelerometer: Sensor? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,6 +85,71 @@ class MainActivity : AppCompatActivity() {
             }
         }
         onBackPressedDispatcher.addCallback(this, callback)
+
+        // Sensor setup for hand detection
+        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI)
+
+        handHeld = "unknown" //default
+    }
+
+    // SensorEventListener
+    override fun onSensorChanged(event: SensorEvent?) {
+        event ?: return
+        if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+
+            val alpha = 0.8f
+            if (!::gravity.isInitialized) gravity = FloatArray(3) { 0f }
+            for (i in 0..2) {
+                gravity[i] = alpha * gravity[i] + (1 - alpha) * event.values[i]
+            }
+
+            val x = gravity[0]
+            val y = gravity[1]
+            val z = gravity[2]
+
+            handBuffer.add(Triple(x, y, z))
+            if (handBuffer.size > 20) handBuffer.removeAt(0)
+
+            val avgX = handBuffer.map { it.first }.average().toFloat()
+            val avgY = handBuffer.map { it.second }.average().toFloat()
+            val avgZ = handBuffer.map { it.third }.average().toFloat()
+
+            val newHand = detectHand(avgX, avgY, avgZ)
+            if (newHand != handHeld) {
+                handHeld = newHand
+                Toast.makeText(this, "Detected hand: $handHeld", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+
+    private fun detectHand(x: Float, y: Float, z: Float): String {
+        val movementThreshold = 2.5f
+        val horizontalThreshold = 1.5f
+
+        if (abs(x) < horizontalThreshold && abs(y) < horizontalThreshold && abs(z - 9.8f) < horizontalThreshold) return "unknown"
+
+        if (handHeld != "unknown") {
+            return when {
+                x > movementThreshold -> "left"
+                x < -movementThreshold -> "right"
+                else -> handHeld
+            }
+        }
+
+        return when {
+            x > movementThreshold -> "left"
+            x < -movementThreshold -> "right"
+            else -> handHeld
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        sensorManager.unregisterListener(this)
     }
 
     private fun initViews() {
@@ -153,12 +230,14 @@ class MainActivity : AppCompatActivity() {
         fun addTouchListener(view: android.view.View, targetName: String) {
             view.setOnTouchListener { _, event ->
                 if (event.action == android.view.MotionEvent.ACTION_DOWN) {
+                    val pressure = event.pressure
                     val ts = System.currentTimeMillis()
                     val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
                     dateFormat.timeZone = TimeZone.getDefault()
 
                     touchPoints.add(
                         TouchPoint(
+                            pressure = pressure,
                             x = event.rawX,
                             y = event.rawY,
                             timestampTime = dateFormat.format(Date(ts)),
@@ -252,6 +331,7 @@ class MainActivity : AppCompatActivity() {
             "averageTypingSpeed" to (if (userIdTypingTime > 0) (userId.length.toDouble() / (userIdTypingTime / 1000.0)) else -1.0),
             "touchPointsCount" to touchPoints.size,
             "touchPoints" to touchPoints.map { mapOf(
+                "pressure" to it.pressure,
                 "x" to it.x,
                 "y" to it.y,
                 "timestamp" to it.timestampTime,
@@ -267,6 +347,7 @@ class MainActivity : AppCompatActivity() {
             "timestamp" to currentTime,
             "deviceModel" to android.os.Build.MODEL,
             "androidVersion" to android.os.Build.VERSION.RELEASE,
+            "handUsed" to handHeld,
             "behavior" to behaviorData
         )
 
