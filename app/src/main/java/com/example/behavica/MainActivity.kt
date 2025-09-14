@@ -3,11 +3,12 @@ package com.example.behavica
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
-import android.view.MotionEvent
+import android.text.Editable
+import android.text.TextWatcher
 import android.widget.*
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.textfield.TextInputEditText
@@ -29,16 +30,24 @@ class MainActivity : AppCompatActivity() {
     // Firebase
     private lateinit var db: FirebaseFirestore
 
-    // Behavior data
-    private val userIdTimestamps = mutableListOf<Long>()
-    private var userIdBackspaces = 0
+    // TouchPoint data class
+    private val touchPoints = mutableListOf<TouchPoint>()
+    data class TouchPoint(val x: Float, val y: Float, val timestampTime: String, val target: String)
+
+    // Behavioral data
     private var userIdStartTime: Long = 0
+    private var userIdEndTime: Long = 0
+    private var userIdEditCount = 0
+    private var userIdMaxLength = 0
 
-    private val userAgeTimestamps = mutableListOf<Long>()
-    private var userAgeBackspaces = 0
     private var userAgeStartTime: Long = 0
+    private var userAgeEndTime: Long = 0
+    private var userAgeEditCount = 0
 
-    private val clickPositions = mutableListOf<Pair<Float, Float>>()
+    private var genderSelectTime: Long = 0
+    private var checkboxClickTime: Long = 0
+    private var submitClickTime: Long = 0
+    private var formStartTime: Long = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,12 +59,20 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-
+        formStartTime = System.currentTimeMillis()
         db = FirebaseFirestore.getInstance()
+
         initViews()
         setupGenderSpinner()
         setupSubmitButton()
         setupBehaviorTracking()
+
+        // Ignore Back button
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, callback)
     }
 
     private fun initViews() {
@@ -79,10 +96,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupSubmitButton() {
         submitButton.setOnClickListener {
+            val currentSubmitTime = System.currentTimeMillis()
+            submitClickTime = currentSubmitTime
+
             if(validateForm()){
                 submitButton.isEnabled = false
                 submitButton.text = "Submitting..."
-
                 submitToFirebase()
             }
         }
@@ -129,33 +148,79 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setupBehaviorTracking() {
-        // Track userId input
-        userIdInput.setOnKeyListener { _, keyCode, event ->
-            if (event.action == android.view.KeyEvent.ACTION_DOWN) {
-                if (userIdStartTime == 0L) userIdStartTime = System.currentTimeMillis()
-                if (keyCode == android.view.KeyEvent.KEYCODE_DEL) userIdBackspaces++
-                userIdTimestamps.add(System.currentTimeMillis())
+
+        //function for touch recording
+        fun addTouchListener(view: android.view.View, targetName: String) {
+            view.setOnTouchListener { _, event ->
+                if (event.action == android.view.MotionEvent.ACTION_DOWN) {
+                    val ts = System.currentTimeMillis()
+                    val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                    dateFormat.timeZone = TimeZone.getDefault()
+
+                    touchPoints.add(
+                        TouchPoint(
+                            x = event.rawX,
+                            y = event.rawY,
+                            timestampTime = dateFormat.format(Date(ts)),
+                            target = targetName
+                        )
+                    )
+                }
+                false
             }
-            false
         }
+
+        // Track userId input
+        userIdInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (userIdStartTime == 0L) userIdStartTime = System.currentTimeMillis()
+                userIdEditCount++
+                userIdMaxLength = maxOf(userIdMaxLength, s?.length ?: 0)
+            }
+
+            override fun afterTextChanged(s: Editable?) {
+                userIdEndTime = System.currentTimeMillis()
+            }
+        })
 
         // Track userAge input
-        userAgeInput.setOnKeyListener { _, keyCode, event ->
-            if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+        userAgeInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 if (userAgeStartTime == 0L) userAgeStartTime = System.currentTimeMillis()
-                if (keyCode == android.view.KeyEvent.KEYCODE_DEL) userAgeBackspaces++
-                userAgeTimestamps.add(System.currentTimeMillis())
+                userAgeEditCount++
             }
-            false
+
+            override fun afterTextChanged(s: Editable?) {
+                userAgeEndTime = System.currentTimeMillis()
+            }
+        })
+
+        // Track gender spinner clicks
+        genderSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                if (position > 0 && genderSelectTime == 0L) {
+                    genderSelectTime = System.currentTimeMillis()
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
-        // Track clicks anywhere
-        findViewById<ConstraintLayout>(R.id.afterSubmit).setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_DOWN) {
-                clickPositions.add(Pair(event.x, event.y))
+        // Track checkbox clicks
+        checkBox.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked && checkboxClickTime == 0L) {
+                checkboxClickTime = System.currentTimeMillis()
             }
-            false
         }
+
+        addTouchListener(userIdInput, "userIdInput")
+        addTouchListener(userAgeInput, "userAgeInput")
+        addTouchListener(genderSpinner, "genderSpinner")
+        addTouchListener(checkBox, "checkBox")
+        addTouchListener(submitButton, "submitButton")
     }
 
     private fun submitToFirebase() {
@@ -165,20 +230,33 @@ class MainActivity : AppCompatActivity() {
 
         // creation of timestamp
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+        dateFormat.timeZone = TimeZone.getDefault()
         val currentTime = dateFormat.format(Date())
 
-        val userIdTypingTime = if (userIdStartTime != 0L) System.currentTimeMillis() - userIdStartTime else -1
-        val userAgeTypingTime = if (userAgeStartTime != 0L) System.currentTimeMillis() - userAgeStartTime else -1
+        // Calculate behavioral metrics
+        val totalFormTime = System.currentTimeMillis() - formStartTime
+        val userIdTypingTime = if (userIdEndTime > userIdStartTime) userIdEndTime - userIdStartTime else -1
+        val userAgeTypingTime = if (userAgeEndTime > userAgeStartTime) userAgeEndTime - userAgeStartTime else -1
 
-        // create behavioral data structure for Firebase
+        // Improved behavioral data
         val behaviorData = hashMapOf(
-            "userIdTypingTime" to userIdTypingTime,
-            "userIdBackspaces" to userIdBackspaces,
-            "userIdKeystrokes" to userIdTimestamps,
-            "userAgeTypingTime" to userAgeTypingTime,
-            "userAgeBackspaces" to userAgeBackspaces,
-            "userAgeKeystrokes" to userAgeTimestamps,
-            "clickPositions" to clickPositions
+            "totalFormTime" to (totalFormTime / 1000.0),
+            "userIdTypingTime" to (if (userIdTypingTime > 0) userIdTypingTime / 1000.0 else -1.0),
+            "userIdEditCount" to userIdEditCount,
+            "userIdMaxLength" to userIdMaxLength,
+            "userAgeTypingTime" to (if (userAgeTypingTime > 0) userAgeTypingTime / 1000.0 else -1.0),
+            "userAgeEditCount" to userAgeEditCount,
+            "timeToSelectGender" to (if (genderSelectTime > 0) (genderSelectTime - formStartTime) / 1000.0 else -1.0),
+            "timeToCheckbox" to (if (checkboxClickTime > 0) (checkboxClickTime - formStartTime) / 1000.0 else -1.0),
+            "timeToSubmit" to (if (submitClickTime > 0) (submitClickTime - formStartTime) / 1000.0 else -1.0),
+            "averageTypingSpeed" to (if (userIdTypingTime > 0) (userId.length.toDouble() / (userIdTypingTime / 1000.0)) else -1.0),
+            "touchPointsCount" to touchPoints.size,
+            "touchPoints" to touchPoints.map { mapOf(
+                "x" to it.x,
+                "y" to it.y,
+                "timestamp" to it.timestampTime,
+                "target" to it.target
+            )}
         )
 
         // create user data structure for Firebase

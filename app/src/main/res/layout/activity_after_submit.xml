@@ -10,12 +10,13 @@
 
     <LinearLayout
             android:orientation="vertical"
-            android:layout_width="409dp"
-            android:layout_height="729dp"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent">
+            app:layout_constraintBottom_toBottomOf="parent"
+            android:gravity="center">
 
         <TextView
                 android:text="Thank you for participating!!"
@@ -24,7 +25,7 @@
                 android:id="@+id/textView"
                 android:textAlignment="center"
                 android:textSize="34sp"
-                android:layout_marginTop="50dp"/>
+                android:gravity="center"/>
 
         <TextView
                 android:text=" Your data has been successfully uploaded to the database!"
