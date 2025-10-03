@@ -21,6 +21,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.abs
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.SetOptions
 
 class MainActivity : AppCompatActivity(), SensorEventListener  {
 
@@ -34,6 +36,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener  {
 
     // Firebase
     private lateinit var db: FirebaseFirestore
+
+    // Email from pre-screen
+    private var userEmail: String? = null
 
     // TouchPoint data class
     private val touchPoints = mutableListOf<TouchPoint>()
@@ -73,6 +78,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener  {
         }
         formStartTime = System.currentTimeMillis()
         db = FirebaseFirestore.getInstance()
+
+        userEmail = intent.getStringExtra("email")
 
         initViews()
         setupGenderSpinner()
@@ -312,6 +319,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener  {
         dateFormat.timeZone = TimeZone.getDefault()
         val currentTime = dateFormat.format(Date())
 
+        //safety ID for sub-collection
+        val timestampId = currentTime.replace(" ", "_").replace(":", "-")
+
         // Calculate behavioral metrics
         val totalFormTime = System.currentTimeMillis() - formStartTime
         val userIdTypingTime = if (userIdEndTime > userIdStartTime) userIdEndTime - userIdStartTime else -1
@@ -340,48 +350,52 @@ class MainActivity : AppCompatActivity(), SensorEventListener  {
         )
 
         // create user data structure for Firebase
-        val userData = hashMapOf(
+        val submission = hashMapOf(
             "userId" to userId,
             "age" to userAge,
             "gender" to userGender,
             "timestamp" to currentTime,
+            "createdAt" to FieldValue.serverTimestamp(),
             "deviceModel" to android.os.Build.MODEL,
             "androidVersion" to android.os.Build.VERSION.RELEASE,
             "handUsed" to handHeld,
             "behavior" to behaviorData
         )
 
-        // Save to Firestore
-        db.collection("users")
-            .add(userData)
-            .addOnSuccessListener { documentReference ->
-                // Saved successfully
-                Toast.makeText(this, "Data saved successfully!", Toast.LENGTH_SHORT).show()
+        val emailLower = (userEmail ?: "").trim().lowercase()
+        val emailDoc = db.collection("Users2").document(emailLower)
+        val subDoc = emailDoc.collection(timestampId).document("submission")
 
-                // Go to AfterSubmitActivity
-                val intent = Intent(this, AfterSubmitActivity::class.java)
-                startActivity(intent)
+        //parent metadata
+        val parentMeta = mapOf(
+            "email" to emailLower,
+            "submissionCount" to FieldValue.increment(1),
+            "lastSubmissionAt" to FieldValue.serverTimestamp()
+        )
+
+        // Save to Firestore
+        val batch = db.batch()
+        batch.set(emailDoc, parentMeta, SetOptions.merge())
+        batch.set(subDoc, submission)
+
+        batch.commit()
+            .addOnSuccessListener {
+                Toast.makeText(this, "Data saved successfully!", Toast.LENGTH_SHORT).show()
+                startActivity(Intent(this, AfterSubmitActivity::class.java))
                 finish()
             }
             .addOnFailureListener { e ->
-                // Error handling
                 val errorMessage = when {
                     e.message?.contains("PERMISSION_DENIED") == true ->
                         "Permission denied. Please check your data."
                     e.message?.contains("NETWORK") == true ->
                         "Network error. Please check your internet connection."
-                    else ->
-                        "Error saving data: ${e.message}"
+                    else -> "Error saving data: ${e.message}"
                 }
-
                 Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show()
-
-                // Re-enable button
                 submitButton.isEnabled = true
                 submitButton.text = "Submit"
-
-                // Log error for debugging
-                android.util.Log.e("Firebase", "Error adding document", e)
+                android.util.Log.e("Firebase", "Error writing Users2/{email}/{timestamp}/submission", e)
             }
     }
 }
