@@ -17,6 +17,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
 import java.util.*
@@ -36,6 +37,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener  {
 
     // Firebase
     private lateinit var db: FirebaseFirestore
+    private val auth by lazy { FirebaseAuth.getInstance() }
 
     // Email from pre-screen
     private var userEmail: String? = null
@@ -186,9 +188,22 @@ class MainActivity : AppCompatActivity(), SensorEventListener  {
             if(validateForm()){
                 submitButton.isEnabled = false
                 submitButton.text = "Submitting..."
-                submitToFirebase()
+                ensureAnonAuthThen { submitToFirebase() }
             }
         }
+    }
+
+    private fun ensureAnonAuthThen(onReady: () -> Unit) {
+        val user = auth.currentUser
+        if (user != null) { onReady(); return }
+        auth.signInAnonymously()
+            .addOnSuccessListener { onReady() }
+            .addOnFailureListener { e ->
+                android.util.Log.e("Auth", "Anon sign-in failed", e)
+                Toast.makeText(this, "Permission denied (auth).", Toast.LENGTH_LONG).show()
+                submitButton.isEnabled = true
+                submitButton.text = "Submit"
+            }
     }
 
     private fun validateForm(): Boolean {
@@ -366,7 +381,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener  {
         val emailDoc = db.collection("Users2").document(emailLower)
         val subDoc = emailDoc.collection(timestampId).document("submission")
 
-        //parent metadata
+        //parent meta: submissionCount + lastSubmissionAt
         val parentMeta = mapOf(
             "email" to emailLower,
             "submissionCount" to FieldValue.increment(1),
