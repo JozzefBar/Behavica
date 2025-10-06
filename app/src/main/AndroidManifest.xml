@@ -13,7 +13,7 @@
             android:theme="@style/Theme.Behavica"
             tools:targetApi="31">
         <activity
-                android:name=".BeforeMainActivity"
+                android:name=".ui.BeforeMainActivity"
                 android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -21,11 +21,11 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".MainActivity"
+        <activity android:name=".ui.MainActivity"
                   android:exported="false"/>
         
         <activity
-                android:name=".AfterSubmitActivity"
+                android:name=".ui.AfterSubmitActivity"
                 android:exported="false"/>
 
     </application>
