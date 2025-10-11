@@ -24,7 +24,7 @@ class FormValidator(
         }
         userAgeLayout.error = null
 
-        //layout for text not correct
+        //layout for text not correct - to be fixed
         if (genderSpinner.selectedItemPosition == 0) {
             Toast.makeText(userAgeLayout.context, "Please select your gender", Toast.LENGTH_LONG).show()
             return false

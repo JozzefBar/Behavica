@@ -21,7 +21,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
             onError("Could not generate unique userId.")
             return
         }
-        val candidate = Random.nextInt(10000, 100000).toString()
+        val candidate = Random.nextInt(10000, 100000).toString()        //generate random 5-digit number
         db.collection("Users2").whereEqualTo("userId", candidate).limit(1).get()
             .addOnSuccessListener { q ->
                 if (!q.isEmpty) {
@@ -31,37 +31,6 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
                 }
             }
             .addOnFailureListener { e -> onError("Failed to check uniqueness: ${e.localizedMessage}") }
-    }
-
-    private fun generateAndSetUniqueUserId(
-        email: String,
-        onResult: (email: String) -> Unit,
-        onError: (error: String) -> Unit,
-        attemptsLeft: Int = 20
-    ){
-        if(attemptsLeft <= 0){
-            onError("Could not allocate userId.")
-            return
-        }
-        val candidate = Random.nextInt(10000, 100000).toString()
-        db.collection("Users2").whereEqualTo("userId", candidate).limit(1).get()
-            .addOnSuccessListener { q ->
-                if(!q.isEmpty){
-                    generateAndSetUniqueUserId(email, onResult, onError, attemptsLeft - 1)
-                }
-                else{
-                    val emailDoc = db.collection("Users2").document(email)
-                    val meta = mapOf(
-                        "email" to email,
-                        "userId" to candidate,
-                        "submissionCount" to FieldValue.increment(1)
-                    )
-                    emailDoc.set(meta, SetOptions.merge())
-                        .addOnSuccessListener {  onResult(candidate) }
-                        .addOnFailureListener { e -> onError("Failed to set userId: ${e.localizedMessage}") }
-                }
-            }
-            .addOnFailureListener { e -> onError("Check uniqueness failed: ${e.localizedMessage}") }
     }
 
     fun submitWithMetrics(
@@ -75,35 +44,28 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
-        //if UserID exists
-        if (!existingUserId.isNullOrBlank()) {
-            saveSubmission(email, existingUserId, userAge, userGender, handHeld, metrics, touchPoints, onSuccess, onError)
-            return
+        val proceed: (String) -> Unit = { userId ->
+            saveSubmission(
+                email = email,
+                userId = userId,
+                userAge = userAge,
+                userGender = userGender,
+                handHeld = handHeld,
+                metrics = metrics,
+                touchPoints = touchPoints,
+                onSuccess = onSuccess,
+                onError = onError
+            )
         }
 
-        // Check if it is in database
-        val emailDoc = db.collection("Users2").document(email)
-
-        emailDoc.get()
-            .addOnSuccessListener { snap ->
-                val dbUserId = snap.getString("userId")
-
-                if (!dbUserId.isNullOrBlank()) {
-                    saveSubmission(email, dbUserId, userAge, userGender, handHeld, metrics, touchPoints, onSuccess, onError)
-                }
-                else {
-                    generateAndSetUniqueUserId(
-                        email = email,
-                        onResult = { newUserId ->
-                            saveSubmission(email, newUserId, userAge, userGender, handHeld, metrics, touchPoints, onSuccess, onError)
-                        },
-                        onError = onError
-                    )
-                }
-            }
-            .addOnFailureListener { e ->
-                onError("Failed to check user: ${e.localizedMessage}")
-            }
+        if (!existingUserId.isNullOrBlank()) {
+            proceed(existingUserId)
+        } else {
+            generateUniqueUserIdOnly(
+                onResult = { uid -> proceed(uid) },
+                onError = onError
+            )
+        }
     }
 
     fun saveSubmission(
