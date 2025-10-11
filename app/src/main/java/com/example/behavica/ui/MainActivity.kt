@@ -21,8 +21,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var userIdLayout: TextInputLayout
-    private lateinit var userIdInput: TextInputEditText
+    private lateinit var userIdText: TextView
     private lateinit var userAgeLayout: TextInputLayout
     private lateinit var userAgeInput: TextInputEditText
     private lateinit var genderSpinner: Spinner
@@ -35,6 +34,7 @@ class MainActivity : AppCompatActivity() {
 
     // Email from pre-screen
     private var userEmail: String? = null
+    private var userId: String? = null
 
     // Helpers
     private lateinit var metrics: FormMetrics
@@ -56,17 +56,19 @@ class MainActivity : AppCompatActivity() {
 
         db = FirebaseFirestore.getInstance()
         userEmail = intent.getStringExtra("email")
+        userId = intent.getStringExtra("userId")
 
         initViews()
+        userIdText.text = "UserID: ${userId ?: "—"}"
 
         // helpers init
         metrics = FormMetrics().apply { markFormStart() }
         behavior = BehaviorTracker(metrics)
-        behavior.attach(userIdInput, userAgeInput, genderSpinner, checkBox, submitButton)
+        behavior.attach(userAgeInput, genderSpinner, checkBox, submitButton)
 
         hand = HandDetector(this).also { it.start() }
         repo = FirestoreRepository(db)
-        validator = FormValidator(userIdLayout, userAgeLayout, genderSpinner, checkBox)
+        validator = FormValidator(userAgeLayout, genderSpinner, checkBox)
 
         setupGenderSpinner()
         setupSubmitButton()
@@ -82,9 +84,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-        userIdLayout = findViewById(R.id.userIdLayout)
+        userIdText = findViewById(R.id.userIdText)
         userAgeLayout = findViewById(R.id.userAgeLayout)
-        userIdInput = findViewById(R.id.userIdInput)
         userAgeInput = findViewById(R.id.userAgeInput)
         genderSpinner = findViewById(R.id.genderSpinner)
         checkBox = findViewById(R.id.checkBox)
@@ -125,18 +126,18 @@ class MainActivity : AppCompatActivity() {
 
     // Save to Firestore
     private fun submitToFirebase() {
-        val userId = userIdInput.text.toString().trim()
+        val email = userEmail.orEmpty().trim().lowercase()
         val userAge = userAgeInput.text.toString().trim().toInt()
         val userGender = genderSpinner.selectedItem.toString()
 
-        repo.submit(
-            email = userEmail.toString().trim(),
-            userId = userId,
+        repo.submitWithMetrics(
+            email = email,
             userAge = userAge,
             userGender = userGender,
             handHeld = hand.currentHand(),
             metrics = metrics,
             touchPoints = behavior.getTouchPoints(),
+            existingUserId = userId,
             onSuccess = {
                 Toast.makeText(this, "Data saved successfully!", Toast.LENGTH_SHORT).show()
                 startActivity(Intent(this, AfterSubmitActivity::class.java))

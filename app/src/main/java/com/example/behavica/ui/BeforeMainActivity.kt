@@ -4,7 +4,6 @@ import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Log
 import android.util.Patterns
 import android.view.View
 import android.widget.Button
@@ -17,6 +16,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.example.behavica.R
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
+import com.example.behavica.data.FirestoreRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.firestore.FirebaseFirestore
@@ -30,7 +30,11 @@ class BeforeMainActivity : AppCompatActivity() {
     private lateinit var emailStatusText: TextView
 
     private val db by lazy { FirebaseFirestore.getInstance() }
+    private val repo by lazy { FirestoreRepository(db) }
     private val auth by lazy { FirebaseAuth.getInstance() }
+
+    //for userID from db
+    private var resolvedUserId: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,6 +53,8 @@ class BeforeMainActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.emailCheckProgress)
         emailStatusText = findViewById(R.id.emailStatusText)
 
+        startButton.isEnabled = false
+
         emailInput.addTextChangedListener(object : TextWatcher{
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int){}
             override fun onTextChanged(s: CharSequence?, start: Int, count: Int, after: Int){
@@ -65,26 +71,53 @@ class BeforeMainActivity : AppCompatActivity() {
 
                 emailStatusText.visibility = View.GONE
                 emailStatusText.text = ""
+                resolvedUserId = null
 
-                if (isValid) {
-                    val emailLower = email.trim().lowercase()
+                if (isValid){
                     ensureAnonAuth {
+                        val emailLower = email.lowercase()
                         checkEmailInDb(emailLower)
                     }
                 }
             }
+
             override fun afterTextChanged(p0: Editable?) {}
         })
 
         startButton.setOnClickListener {
-            val email = emailInput.text.toString().trim()
-            goToMain(email)
+                val email = emailInput.text.toString().trim()
+                startButton.isEnabled = false
+                progressBar.visibility = View.VISIBLE
+
+                ensureAnonAuth {
+                    if (resolvedUserId == null) {
+                        repo.generateUniqueUserIdOnly(
+                            onResult = { newUserId ->
+                                progressBar.visibility = View.GONE
+                                resolvedUserId = newUserId
+                                goToMain(email, newUserId)
+                            },
+                            onError = { msg ->
+                                progressBar.visibility = View.GONE
+                                startButton.isEnabled = true
+                                emailStatusText.visibility = View.VISIBLE
+                                emailStatusText.text = msg
+                            }
+                        )
+                    } else {
+                        progressBar.visibility = View.GONE
+                        goToMain(email, resolvedUserId)
+                    }
+                }
         }
     }
 
-    // anonymous login in
+    // anonymous login
     private fun ensureAnonAuth(onReady: () -> Unit) {
-        if (auth.currentUser != null) { onReady(); return }
+        if (auth.currentUser != null) {
+            onReady()
+            return
+        }
         progressBar.visibility = View.VISIBLE
         auth.signInAnonymously()
             .addOnSuccessListener {
@@ -94,9 +127,8 @@ class BeforeMainActivity : AppCompatActivity() {
             .addOnFailureListener { e ->
                 progressBar.visibility = View.GONE
                 val msg = (e as? FirebaseAuthException)?.errorCode ?: e.localizedMessage
-                emailStatusText.text = "Auth failed: $msg"
                 emailStatusText.visibility = View.VISIBLE
-                Log.e("Auth", "Anon sign-in failed", e)
+                emailStatusText.text = "Auth failed: $msg"
             }
     }
 
@@ -107,30 +139,45 @@ class BeforeMainActivity : AppCompatActivity() {
             .get()
             .addOnSuccessListener { snap ->
                 progressBar.visibility = View.GONE
-
                 emailStatusText.visibility = View.VISIBLE
-                val count = (snap.getLong("submissionCount") ?: -1).toInt()
-                if (count > 0)
-                    emailStatusText.text = "This email already has $count submission(s)."
-                else
-                    emailStatusText.text = "This email is not in the database yet."
 
-                emailLayout.helperText = "Email OK"
-                emailLayout.error = null
+                if (snap.exists()) {
+                    val count = (snap.getLong("submissionCount") ?: 0).toInt()
+                    val uid = snap.getString("userId")
+
+                    resolvedUserId = uid
+
+                    val countMsg = "This email already has $count submission(s)."
+                    val idMsg = if (!uid.isNullOrBlank())
+                        "User ID: $uid"
+                    else
+                        "No user ID stored for this email"
+
+                    emailStatusText.text = "$countMsg  $idMsg"
+                    emailLayout.helperText = "Email OK"
+                    emailLayout.error = null
+                }
+                else {
+                    resolvedUserId = null
+                    emailStatusText.text = "This email is not in the database yet. User ID will be generated after clicking Start."
+                    emailLayout.helperText = "Email OK"
+                    emailLayout.error = null
+                }
             }
             .addOnFailureListener { e ->
                 progressBar.visibility = View.GONE
                 val code = (e as? FirebaseFirestoreException)?.code?.name ?: e.localizedMessage
                 emailStatusText.text = "Couldn't check DB: $code"
                 emailStatusText.visibility = View.VISIBLE
-                Log.e("DB", "read failed", e)
                 emailLayout.error = null
             }
     }
 
-    private fun goToMain(email: String) {
+    private fun goToMain(email: String, userId: String?) {
         val intent = Intent(this, MainActivity::class.java).apply {
             putExtra("email", email)
+            if (!userId.isNullOrBlank())
+                putExtra("userId", userId)
         }
         startActivity(intent)
         finish()

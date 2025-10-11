@@ -4,49 +4,75 @@ import com.example.behavica.model.TouchPoint
 
 class FormMetrics {
     // Behavioral data
-    var userIdStartTime: Long = 0
-    var userIdEndTime: Long = 0
-    var userIdEditCount = 0
-    var userIdMaxLength = 0
-
     var userAgeStartTime: Long = 0
     var userAgeEndTime: Long = 0
-    var userAgeEditCount = 0
+    var userAgeEditCount: Int = 0
 
     var genderSelectTime: Long = 0
     var checkboxClickTime: Long = 0
     var submitClickTime: Long = 0
     var formStartTime: Long = 0
 
-    fun markFormStart() { formStartTime = System.currentTimeMillis() }
-    fun markSubmitClick() { submitClickTime = System.currentTimeMillis() }
+    //var userIdTypingTime: Long = 0     //for now without use
+
+    val keystrokes: MutableList<Map<String, Any>> = mutableListOf()
+
+    fun markFormStart() {
+        formStartTime = System.currentTimeMillis()
+    }
+
+    fun markSubmitClick() {
+        submitClickTime = System.currentTimeMillis()
+    }
 
     // Improved behavioral data
-    fun buildBehaviorData(userId: String, touchPoints: List<TouchPoint>): Map<String, Any?> {
-        val userIdTypingTime = if (userIdEndTime > userIdStartTime) userIdEndTime - userIdStartTime else -1
-        val userAgeTypingTime = if (userAgeEndTime > userAgeStartTime) userAgeEndTime - userAgeStartTime else -1
+    fun buildBehaviorData(touchPoints: List<TouchPoint>): Map<String, Any> {
+        val totalFormTimeSec = if (formStartTime > 0)
+            (System.currentTimeMillis() - formStartTime) / 1000.0
+        else -1.0
+
+        val userAgeTypingSec = if (userAgeEndTime > userAgeStartTime && userAgeStartTime > 0)
+            (userAgeEndTime - userAgeStartTime) / 1000.0
+        else -1.0
+
+        val timeToSelectGenderSec = if (genderSelectTime > formStartTime && formStartTime > 0)
+            (genderSelectTime - formStartTime) / 1000.0
+        else -1.0
+
+        val timeToClickCheckbox = if (checkboxClickTime > formStartTime && formStartTime > 0)
+            (checkboxClickTime - formStartTime) / 1000.0
+        else -1.0
+
+        val timeToSubmitSec = if (submitClickTime > formStartTime && formStartTime > 0)
+            (submitClickTime - formStartTime) / 1000.0
+        else -1.0
 
         return hashMapOf(
-            "totalFormTime" to ((System.currentTimeMillis() - formStartTime) / 1000.0),
-            "userIdTypingTime" to (if (userIdTypingTime > 0) userIdTypingTime / 1000.0 else -1.0),
-            "userIdEditCount" to userIdEditCount,
-            "userIdMaxLength" to userIdMaxLength,
-            "userAgeTypingTime" to (if (userAgeTypingTime > 0) userAgeTypingTime / 1000.0 else -1.0),
+            "userAgeTypingTime" to userAgeTypingSec,
             "userAgeEditCount" to userAgeEditCount,
-            "timeToSelectGender" to (if (genderSelectTime > 0) (genderSelectTime - formStartTime) / 1000.0 else -1.0),
-            "timeToCheckbox" to (if (checkboxClickTime > 0) (checkboxClickTime - formStartTime) / 1000.0 else -1.0),
-            "timeToSubmit" to (if (submitClickTime > 0) (submitClickTime - formStartTime) / 1000.0 else -1.0),
-            "averageTypingSpeed" to (if (userIdTypingTime > 0) (userId.length.toDouble() / (userIdTypingTime / 1000.0)) else -1.0),
+            "timeToSelectGender" to timeToSelectGenderSec,
+            "timeToClickCheckbox" to timeToClickCheckbox,
+            "timeToSubmit" to timeToSubmitSec,
+            "totalFormTime" to totalFormTimeSec,
             "touchPointsCount" to touchPoints.size,
-            "touchPoints" to touchPoints.map {
+            "touchPoints" to touchPoints.map { tp ->
                 mapOf(
-                    "pressure" to it.pressure,
-                    "x" to it.x,
-                    "y" to it.y,
-                    "timestamp" to it.timestampTime,
-                    "target" to it.target
+                    "pressure" to tp.pressure,
+                    "x" to tp.x,
+                    "y" to tp.y,
+                    "rawX" to tp.rawX,
+                    "rawY" to tp.rawY,
+                    "touchMajor" to tp.touchMajor,
+                    "touchMinor" to tp.touchMinor,
+                    "timestampTime" to tp.timestampTime,
+                    "timestampEpochMs" to tp.timestampEpochMs,
+                    "action" to tp.action,
+                    "pointerId" to tp.pointerId,
+                    "target" to tp.target
                 )
-            }
+            },
+
+            "keystrokes" to keystrokes
         )
     }
 }
