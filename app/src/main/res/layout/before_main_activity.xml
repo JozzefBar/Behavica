@@ -67,7 +67,8 @@
                 android:text=""
                 android:textSize="12sp"
                 android:paddingTop="6dp"
-                android:visibility="gone"/>
+                android:visibility="gone"
+                android:textAlignment="center"/>
 
         <TextView
                 android:id="@+id/infoText"

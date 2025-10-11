@@ -7,11 +7,106 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import java.text.SimpleDateFormat
+import kotlin.random.Random
 import java.util.*
 
 class FirestoreRepository(private val db: FirebaseFirestore) {
 
-    fun submit(
+    fun generateUniqueUserIdOnly(
+        onResult: (userId: String) -> Unit,
+        onError: (error: String) -> Unit,
+        attemptsLeft: Int = 20
+    ) {
+        if (attemptsLeft <= 0) {
+            onError("Could not generate unique userId.")
+            return
+        }
+        val candidate = Random.nextInt(10000, 100000).toString()
+        db.collection("Users2").whereEqualTo("userId", candidate).limit(1).get()
+            .addOnSuccessListener { q ->
+                if (!q.isEmpty) {
+                    generateUniqueUserIdOnly(onResult, onError, attemptsLeft - 1)
+                } else {
+                    onResult(candidate)
+                }
+            }
+            .addOnFailureListener { e -> onError("Failed to check uniqueness: ${e.localizedMessage}") }
+    }
+
+    private fun generateAndSetUniqueUserId(
+        email: String,
+        onResult: (email: String) -> Unit,
+        onError: (error: String) -> Unit,
+        attemptsLeft: Int = 20
+    ){
+        if(attemptsLeft <= 0){
+            onError("Could not allocate userId.")
+            return
+        }
+        val candidate = Random.nextInt(10000, 100000).toString()
+        db.collection("Users2").whereEqualTo("userId", candidate).limit(1).get()
+            .addOnSuccessListener { q ->
+                if(!q.isEmpty){
+                    generateAndSetUniqueUserId(email, onResult, onError, attemptsLeft - 1)
+                }
+                else{
+                    val emailDoc = db.collection("Users2").document(email)
+                    val meta = mapOf(
+                        "email" to email,
+                        "userId" to candidate,
+                        "submissionCount" to FieldValue.increment(1)
+                    )
+                    emailDoc.set(meta, SetOptions.merge())
+                        .addOnSuccessListener {  onResult(candidate) }
+                        .addOnFailureListener { e -> onError("Failed to set userId: ${e.localizedMessage}") }
+                }
+            }
+            .addOnFailureListener { e -> onError("Check uniqueness failed: ${e.localizedMessage}") }
+    }
+
+    fun submitWithMetrics(
+        email: String,
+        userAge: Int,
+        userGender: String,
+        handHeld: String,
+        metrics: FormMetrics,
+        touchPoints: List<TouchPoint>,
+        existingUserId: String?,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        //if UserID exists
+        if (!existingUserId.isNullOrBlank()) {
+            saveSubmission(email, existingUserId, userAge, userGender, handHeld, metrics, touchPoints, onSuccess, onError)
+            return
+        }
+
+        // Check if it is in database
+        val emailDoc = db.collection("Users2").document(email)
+
+        emailDoc.get()
+            .addOnSuccessListener { snap ->
+                val dbUserId = snap.getString("userId")
+
+                if (!dbUserId.isNullOrBlank()) {
+                    saveSubmission(email, dbUserId, userAge, userGender, handHeld, metrics, touchPoints, onSuccess, onError)
+                }
+                else {
+                    generateAndSetUniqueUserId(
+                        email = email,
+                        onResult = { newUserId ->
+                            saveSubmission(email, newUserId, userAge, userGender, handHeld, metrics, touchPoints, onSuccess, onError)
+                        },
+                        onError = onError
+                    )
+                }
+            }
+            .addOnFailureListener { e ->
+                onError("Failed to check user: ${e.localizedMessage}")
+            }
+    }
+
+    fun saveSubmission(
         email: String,
         userId: String,
         userAge: Int,
@@ -28,11 +123,10 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         val currentTime = dateFormat.format(Date())
         val timestampId = currentTime.replace(" ", "_").replace(":", "-")
 
-        val behaviorData = metrics.buildBehaviorData(userId, touchPoints)
+        val behaviorData = metrics.buildBehaviorData(touchPoints)
 
         // create user data structure for Firebase
         val submission = hashMapOf(
-            "userId" to userId,
             "age" to userAge,
             "gender" to userGender,
             "timestamp" to currentTime,
@@ -46,9 +140,10 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         val emailDoc = db.collection("Users2").document(email)
         val subDoc = emailDoc.collection(timestampId).document("submission")
 
-        //parent meta: submissionCount + lastSubmissionAt
+        //parent meta: submissionCount
         val parentMeta = mapOf(
             "email" to email,
+            "userId" to userId,
             "submissionCount" to FieldValue.increment(1)
         )
 
