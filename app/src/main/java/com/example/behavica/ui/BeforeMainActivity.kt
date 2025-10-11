@@ -2,6 +2,8 @@ package com.example.behavica.ui
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Patterns
@@ -21,6 +23,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.Source
 
 class BeforeMainActivity : AppCompatActivity() {
     private lateinit var emailLayout: TextInputLayout
@@ -35,6 +38,13 @@ class BeforeMainActivity : AppCompatActivity() {
 
     //for userID from db
     private var resolvedUserId: String? = null
+
+    // Debounce + safety check before new response from server
+    private val handler = Handler(Looper.getMainLooper())
+    private var pendingCheck: Runnable? = null
+    private var queryToken = 0
+    private var lastFinishedToken = -1
+    private var authReady = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,6 +65,8 @@ class BeforeMainActivity : AppCompatActivity() {
 
         startButton.isEnabled = false
 
+        ensureAnonAuth { authReady = true }
+
         emailInput.addTextChangedListener(object : TextWatcher{
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int){}
             override fun onTextChanged(s: CharSequence?, start: Int, count: Int, after: Int){
@@ -73,12 +85,23 @@ class BeforeMainActivity : AppCompatActivity() {
                 emailStatusText.text = ""
                 resolvedUserId = null
 
-                if (isValid){
-                    ensureAnonAuth {
-                        val emailLower = email.lowercase()
-                        checkEmailInDb(emailLower)
+                // Debounce 300 ms
+                pendingCheck?.let { handler.removeCallbacks(it) }
+                if (!isValid) return
+
+                val token = ++queryToken
+                pendingCheck = Runnable {
+                    // wait for auth
+                    if (!authReady) {
+                        ensureAnonAuth {
+                            authReady = true
+                            doServerCheck(email.lowercase(), token)
+                        }
+                    } else {
+                        doServerCheck(email.lowercase(), token)
                     }
                 }
+                handler.postDelayed(pendingCheck!!, 300)
             }
 
             override fun afterTextChanged(p0: Editable?) {}
@@ -132,19 +155,21 @@ class BeforeMainActivity : AppCompatActivity() {
             }
     }
 
-    private fun checkEmailInDb(emailLower: String) {
+    private fun doServerCheck(emailLower: String, token: Int) {
         progressBar.visibility = View.VISIBLE
+        startButton.isEnabled = false
 
         db.collection("Users2").document(emailLower)
-            .get()
+            .get(Source.SERVER)
             .addOnSuccessListener { snap ->
+                if (token <= lastFinishedToken) return@addOnSuccessListener
+                lastFinishedToken = token
                 progressBar.visibility = View.GONE
                 emailStatusText.visibility = View.VISIBLE
 
                 if (snap.exists()) {
                     val count = (snap.getLong("submissionCount") ?: 0).toInt()
                     val uid = snap.getString("userId")
-
                     resolvedUserId = uid
 
                     val countMsg = "This email already has $count submission(s)."
@@ -156,15 +181,19 @@ class BeforeMainActivity : AppCompatActivity() {
                     emailStatusText.text = "$countMsg  $idMsg"
                     emailLayout.helperText = "Email OK"
                     emailLayout.error = null
+                    startButton.isEnabled = true
                 }
                 else {
                     resolvedUserId = null
                     emailStatusText.text = "This email is not in the database yet. User ID will be generated after clicking Start."
                     emailLayout.helperText = "Email OK"
                     emailLayout.error = null
+                    startButton.isEnabled = true
                 }
             }
             .addOnFailureListener { e ->
+                if (token <= lastFinishedToken) return@addOnFailureListener
+                lastFinishedToken = token
                 progressBar.visibility = View.GONE
                 val code = (e as? FirebaseFirestoreException)?.code?.name ?: e.localizedMessage
                 emailStatusText.text = "Couldn't check DB: $code"

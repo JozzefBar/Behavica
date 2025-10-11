@@ -37,7 +37,6 @@ class BehaviorTracker(private val formMetrics: FormMetrics) {
         checkBox = checkbox
         submitButton = submit
 
-
         //TEXT WATCHERS
         attachUserAgeWatcher()
 
@@ -129,8 +128,8 @@ class BehaviorTracker(private val formMetrics: FormMetrics) {
                 rawY = -1f
             }
 
-            val touchMajor = safe { e.getTouchMajor(idx) } ?: 0f
-            val touchMinor = safe { e.getTouchMinor(idx) } ?: 0f
+            val touchMajor = safe { e.getTouchMajor(idx) } ?: -1f
+            val touchMinor = safe { e.getTouchMinor(idx) } ?: -1f
             val pointerId = (safe { e.getPointerId(idx) } ?: -1).toString()
 
             touchPoints.add(
