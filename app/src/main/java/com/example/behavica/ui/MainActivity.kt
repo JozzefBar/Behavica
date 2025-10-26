@@ -2,6 +2,8 @@ package com.example.behavica.ui
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
+import android.annotation.SuppressLint
 import android.widget.*
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
@@ -27,6 +29,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var genderSpinner: Spinner
     private lateinit var checkBox: CheckBox
     private lateinit var submitButton: Button
+
+    private lateinit var startCircle: View
+    private lateinit var endCircle: View
+    private lateinit var draggableCircle: View
+    private lateinit var dragContainer: FrameLayout
+    private lateinit var dragStatusText: TextView
 
     // Firebase
     private lateinit var db: FirebaseFirestore
@@ -66,12 +74,18 @@ class MainActivity : AppCompatActivity() {
         behavior = BehaviorTracker(metrics)
         behavior.attach(userAgeInput, genderSpinner, checkBox, submitButton)
 
+        metrics.onDragStatusChanged = { completed ->
+            runOnUiThread { updateDragStatus() }
+        }
+
         hand = HandDetector(this).also { it.start() }
         repo = FirestoreRepository(db)
-        validator = FormValidator(userAgeLayout, genderSpinner, checkBox)
+        validator = FormValidator(userAgeLayout, genderSpinner, checkBox, metrics)
 
+        // Setups
         setupGenderSpinner()
         setupSubmitButton()
+        setupDragTest()
 
         // Ignore Back button
         val callback = object : OnBackPressedCallback(true) { override fun handleOnBackPressed() {} }
@@ -90,6 +104,11 @@ class MainActivity : AppCompatActivity() {
         genderSpinner = findViewById(R.id.genderSpinner)
         checkBox = findViewById(R.id.checkBox)
         submitButton = findViewById(R.id.submitButton)
+        startCircle = findViewById(R.id.startPoint)
+        endCircle = findViewById(R.id.endPoint)
+        draggableCircle = findViewById(R.id.draggableCircle)
+        dragContainer = findViewById(R.id.moveTestContainer)
+        dragStatusText = findViewById(R.id.dragStatusText)
     }
 
     private fun setupGenderSpinner() {
@@ -97,6 +116,37 @@ class MainActivity : AppCompatActivity() {
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, genderOptions)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         genderSpinner.adapter = adapter
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupDragTest() {
+        behavior.attachDragTracking(
+            draggable = draggableCircle,
+            start = startCircle,
+            end = endCircle,
+            container = dragContainer
+        )
+
+        // Monitor metrics to show visual feedback
+        draggableCircle.post {
+            draggableCircle.setOnLongClickListener {
+                // Long click detection - optional for additional analytics
+                false
+            }
+        }
+    }
+
+    // Call this to update drag status after each attempt
+    private fun updateDragStatus() {
+        if (metrics.dragCompleted) {
+            dragStatusText.text = "✓ Drag test completed!"
+            dragStatusText.setTextColor(resources.getColor(android.R.color.holo_green_dark, null))
+            dragStatusText.visibility = View.VISIBLE
+        } else if (metrics.dragAttempts > 0) {
+            dragStatusText.text = "Please try again - drag the circle all the way to B"
+            dragStatusText.setTextColor(resources.getColor(android.R.color.holo_red_dark, null))
+            dragStatusText.visibility = View.VISIBLE
+        }
     }
 
     private fun setupSubmitButton() {

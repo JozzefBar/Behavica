@@ -3,13 +3,15 @@ package com.example.behavica.validation
 import android.widget.CheckBox
 import android.widget.Spinner
 import android.widget.Toast
+import com.example.behavica.metrics.FormMetrics
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 
 class FormValidator(
     private val userAgeLayout: TextInputLayout,
     private val genderSpinner: Spinner,
-    private val checkBox: CheckBox
+    private val checkBox: CheckBox,
+    private val formMetrics: FormMetrics
 ) {
     fun validateForm(): Boolean {
         val ageStr = (userAgeLayout.editText as TextInputEditText).text.toString().trim()
@@ -24,9 +26,12 @@ class FormValidator(
         }
         userAgeLayout.error = null
 
-        //layout for text not correct - to be fixed
         if (genderSpinner.selectedItemPosition == 0) {
             Toast.makeText(userAgeLayout.context, "Please select your gender", Toast.LENGTH_LONG).show()
+            return false
+        }
+        if (!formMetrics.dragCompleted) {
+            Toast.makeText(userAgeLayout.context, "Please complete the drag test by moving the circle from A to B", Toast.LENGTH_LONG).show()
             return false
         }
         if (!checkBox.isChecked) {

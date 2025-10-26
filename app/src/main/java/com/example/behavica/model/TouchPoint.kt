@@ -4,6 +4,7 @@ import android.view.MotionEvent
 
 data class TouchPoint(
     val pressure: Float,
+    val size: Float,
     val x: Float,
     val y: Float,
     val timestampTime: String,
@@ -22,8 +23,6 @@ data class TouchPoint(
             MotionEvent.ACTION_UP -> "ACTION_UP"
             MotionEvent.ACTION_CANCEL -> "ACTION_CANCEL"
             MotionEvent.ACTION_MOVE -> "ACTION_MOVE"
-            MotionEvent.ACTION_POINTER_DOWN -> "ACTION_POINTER_DOWN"
-            MotionEvent.ACTION_POINTER_UP -> "ACTION_POINTER_UP"
             else -> "ACTION_OTHER"
         }
     }
