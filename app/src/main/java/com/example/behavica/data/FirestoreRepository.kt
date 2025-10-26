@@ -21,7 +21,8 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
             onError("Could not generate unique userId.")
             return
         }
-        val candidate = Random.nextInt(10000, 100000).toString()        //generate random 5-digit number
+        //generate random 5-digit number
+        val candidate = Random.nextInt(10000, 100000).toString()
         db.collection("Users2").whereEqualTo("userId", candidate).limit(1).get()
             .addOnSuccessListener { q ->
                 if (!q.isEmpty) {
