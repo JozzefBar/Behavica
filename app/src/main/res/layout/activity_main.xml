@@ -92,7 +92,7 @@
                     android:id="@+id/moveBarArea"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Drag the circle from A to B"
+                    android:text="Drag the blue circle from A to B"
                     android:textAlignment="center"
                     android:textSize="18sp"
                     android:textStyle="bold"
