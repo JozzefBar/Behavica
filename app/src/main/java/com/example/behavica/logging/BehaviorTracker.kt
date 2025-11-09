@@ -6,75 +6,70 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.MotionEvent
 import android.view.View
-import android.widget.AdapterView
-import android.widget.Button
 import android.widget.CheckBox
 import android.widget.FrameLayout
-import android.widget.Spinner
-import com.example.behavica.metrics.FormMetrics
 import com.example.behavica.model.TouchPoint
 import com.google.android.material.textfield.TextInputEditText
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.pow
+import kotlin.math.sqrt
 
-class BehaviorTracker(private val formMetrics: FormMetrics) {
+class BehaviorTracker() {
 
     private val touchPoints: MutableList<TouchPoint> = mutableListOf()
+    private val keystrokes: MutableList<Map<String, Any>> = mutableListOf()
 
-    private lateinit var userAgeInput: TextInputEditText
-    private lateinit var genderSpinner: Spinner
-    private lateinit var checkBox: CheckBox
-    private lateinit var submitButton: Button
+    //Drag test metrics
+    var dragStartTime: Long = 0
+    var dragEndTime: Long = 0
+    var dragCompleted: Boolean = false
+    var dragAttempts: Int = 0
+    var dragDistance: Float = 0f
+    var dragPathLength: Float = 0f
+    private var lastMoveX: Float = 0f
+    private var lastMoveY: Float = 0f
 
-    private var startCircle: View? = null
-    private var endCircle: View? = null
-    private var draggableCircle: View? = null
+    // Text copy metrics
+    var textStartTime: Long = 0
+    var textEditCount = 0
 
-    private var initialX = 0f
-    private var initialY = 0f
-    private var dX = 0f
-    private var dY = 0f
+    // checkbox metrics
+    var checkboxChecked = false
 
-    fun attach(
-        inputAge: TextInputEditText,
-        spinner: Spinner,
-        checkbox: CheckBox,
-        submit: Button,
-    ) {
-        userAgeInput = inputAge
-        genderSpinner = spinner
-        checkBox = checkbox
-        submitButton = submit
+    // callbacks
+    var onDragStatusChanged: ((completed: Boolean) -> Unit)? = null
 
-        // Watchers and Listeners
-        attachUserAgeWatcher()
-        attachSpinnerListener()
-        attachCheckboxListener()
-        attachTouchListeners()
+    @SuppressLint("ClickableViewAccessibility")
+    fun attachTouchListener(view : View, targetName: String){
+        view.setOnTouchListener { _, e ->
+            recordTouchPoint(e, targetName)
+            false
+        }
     }
 
-    private fun attachUserAgeWatcher() {
-        var lastLen = userAgeInput.text?.length ?: 0
-        var startTypingAt = 0L
-        userAgeInput.addTextChangedListener(object : TextWatcher {
+    fun attachTextWatcher(editText: TextInputEditText) {
+        var lastLen = editText.text?.length ?: 0
+
+        editText.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
                 val now = System.currentTimeMillis()
                 val curLen = s?.length ?: 0
 
-                if (startTypingAt == 0L) startTypingAt = now
-                if (formMetrics.userAgeStartTime == 0L) formMetrics.userAgeStartTime = now
-                formMetrics.userAgeEndTime = now
+                if (textStartTime == 0L && curLen > 0)
+                    textStartTime = now
 
-                if (curLen != lastLen) formMetrics.userAgeEditCount += 1
+                if (curLen != lastLen)
+                    textEditCount++
 
                 val delta = curLen - lastLen
                 if (delta != 0) {
-                    formMetrics.keystrokes.add(
+                    keystrokes.add(
                         mapOf(
-                            "field" to "userAge",
+                            "field" to "rewriteTextInput",
                             "type" to if (delta > 0) "insert" else "delete",
                             "count" to kotlin.math.abs(delta),
                             "t" to now
@@ -86,14 +81,9 @@ class BehaviorTracker(private val formMetrics: FormMetrics) {
         })
     }
 
-    private fun attachSpinnerListener() {
-        genderSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
-                if (pos > 0 && formMetrics.genderSelectTime == 0L)
-                    formMetrics.genderSelectTime = System.currentTimeMillis()
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
+    fun attachCheckboxListener(checkBox: CheckBox) {
+        checkBox.setOnCheckedChangeListener { _, isChecked ->
+            checkboxChecked = isChecked
         }
     }
 
@@ -102,11 +92,12 @@ class BehaviorTracker(private val formMetrics: FormMetrics) {
         draggable: View,
         start: View,
         end: View,
-        container: FrameLayout
+        container: FrameLayout,
     ) {
-        draggableCircle = draggable
-        startCircle = start
-        endCircle = end
+        var initialX = 0f
+        var initialY = 0f
+        var dX = 0f
+        var dY = 0f
 
         // Reset position to start
         draggable.post {
@@ -124,13 +115,13 @@ class BehaviorTracker(private val formMetrics: FormMetrics) {
             recordTouchPoint(event, "dragTest")
 
             // If drag is already completed, ignore further touches
-            if (formMetrics.dragCompleted) {
+            if (dragCompleted) {
                 return@setOnTouchListener true
             }
 
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    formMetrics.handleDragEvent(MotionEvent.ACTION_DOWN, draggable, end)
+                    handleDragEvent(MotionEvent.ACTION_DOWN, draggable, end)
 
                     // Store initial position
                     initialX = v.x
@@ -142,7 +133,7 @@ class BehaviorTracker(private val formMetrics: FormMetrics) {
                 }
 
                 MotionEvent.ACTION_MOVE -> {
-                    formMetrics.handleDragEvent(MotionEvent.ACTION_MOVE, draggable, end)
+                    handleDragEvent(MotionEvent.ACTION_MOVE, draggable, end)
 
                     // Calculate new position
                     val newX = event.rawX + dX
@@ -159,12 +150,12 @@ class BehaviorTracker(private val formMetrics: FormMetrics) {
                 }
 
                 MotionEvent.ACTION_UP -> {
-                    formMetrics.handleDragEvent(MotionEvent.ACTION_UP, draggable, end)
+                    handleDragEvent(MotionEvent.ACTION_UP, draggable, end)
 
                     v.alpha = 1f
 
                     // Check if completed successfully, if not reset to start position
-                    if (formMetrics.dragCompleted) {
+                    if (dragCompleted) {
                         v.isEnabled = false
                     } else {
                         v.animate()
@@ -179,25 +170,77 @@ class BehaviorTracker(private val formMetrics: FormMetrics) {
         }
     }
 
-    private fun attachCheckboxListener() {
-        checkBox.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked && formMetrics.checkboxClickTime == 0L)
-                formMetrics.checkboxClickTime = System.currentTimeMillis()
-        }
-    }
+    fun handleDragEvent(
+        action: Int,
+        draggableCircle: View,
+        endCircle: View
+    ) {
+        when (action) {
+            MotionEvent.ACTION_DOWN -> {
+                dragStartTime = System.currentTimeMillis()
+                dragAttempts++
+                dragCompleted = false
+                dragDistance = 0f
+                dragPathLength = 0f
 
-    private fun attachTouchListeners() {
-        addTouchListener(userAgeInput, "userAgeInput")
-        addTouchListener(genderSpinner, "genderSpinner")
-        addTouchListener(checkBox, "checkBox")
-        addTouchListener(submitButton, "submitButton")
-    }
+                // Initialize last position for path tracking
+                val draggableLoc = IntArray(2)
+                draggableCircle.getLocationInWindow(draggableLoc)
+                lastMoveX = draggableLoc[0] + draggableCircle.width / 2f
+                lastMoveY = draggableLoc[1] + draggableCircle.height / 2f
+            }
 
-    @SuppressLint("ClickableViewAccessibility")
-    private fun addTouchListener(view: View, targetName: String){
-        view.setOnTouchListener { _, e ->
-            recordTouchPoint(e, targetName)
-            false
+            MotionEvent.ACTION_MOVE -> {
+                // Calculate incremental distance traveled for path length analytics
+                val draggableLoc = IntArray(2)
+                draggableCircle.getLocationInWindow(draggableLoc)
+
+                val currentX = draggableLoc[0] + draggableCircle.width / 2f
+                val currentY = draggableLoc[1] + draggableCircle.height / 2f
+
+                // Calculate distance from last position
+                val incrementalDistance = sqrt(
+                    (currentX - lastMoveX).pow(2) + (currentY - lastMoveY).pow(2)
+                )
+
+                // Add to total path length
+                dragPathLength += incrementalDistance
+
+                // Update last position for next calculation
+                lastMoveX = currentX
+                lastMoveY = currentY
+            }
+
+            MotionEvent.ACTION_UP -> {
+                dragEndTime = System.currentTimeMillis()
+
+                // Get positions in window coordinates
+                val draggableLoc = IntArray(2)
+                draggableCircle.getLocationInWindow(draggableLoc)
+
+                val endLoc = IntArray(2)
+                endCircle.getLocationInWindow(endLoc)
+
+                // Calculate center points
+                val draggableCenterX = draggableLoc[0] + draggableCircle.width / 2f
+                val draggableCenterY = draggableLoc[1] + draggableCircle.height / 2f
+
+                val endCenterX = endLoc[0] + endCircle.width / 2f
+                val endCenterY = endLoc[1] + endCircle.height / 2f
+
+                // Calculate distance between centers
+                val distance = sqrt(
+                    (draggableCenterX - endCenterX).pow(2) + (draggableCenterY - endCenterY).pow(2)
+                )
+
+                dragDistance = distance
+
+                // Consider completed if within a reasonable threshold - 70% of the circle's width
+                val threshold = endCircle.width * 0.7f
+                dragCompleted = distance < threshold
+
+                onDragStatusChanged?.invoke(dragCompleted)
+            }
         }
     }
 
@@ -259,5 +302,19 @@ class BehaviorTracker(private val formMetrics: FormMetrics) {
             null
         }
 
+    fun getDragDurationSec(): Double {
+        return if (dragStartTime > 0 && dragEndTime > dragStartTime)
+            (dragEndTime - dragStartTime) / 1000.0
+        else -1.0
+    }
+
+    fun getTextRewriteTime(): Double {
+        return if (textStartTime > 0)
+            (System.currentTimeMillis() - textStartTime) / 1000.0
+        else -1.0
+    }
+
     fun getTouchPoints(): List<TouchPoint> = touchPoints
+
+    fun getKeystrokes(): List<Map<String, Any>> = keystrokes
 }
