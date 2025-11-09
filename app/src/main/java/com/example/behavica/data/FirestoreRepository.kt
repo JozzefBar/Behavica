@@ -1,16 +1,33 @@
 package com.example.behavica.data
 
 import android.os.Build
-import com.example.behavica.metrics.FormMetrics
 import com.example.behavica.model.TouchPoint
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import java.text.SimpleDateFormat
 import kotlin.random.Random
 import java.util.*
 
 class FirestoreRepository(private val db: FirebaseFirestore) {
+
+    fun checkEmailExists(
+        email: String,
+        onResult: (exists: Boolean, message: String) -> Unit,
+        onError: (String) -> Unit
+    ){
+        db.collection("Users3").whereEqualTo("email", email.lowercase()).limit(1).get()
+            .addOnSuccessListener { query ->
+                if (query.isEmpty) {
+                    onResult(false, "Email is available")
+                } else {
+                    onResult(true, "This email is already registered. Please use a different email.")
+                }
+            }
+            .addOnFailureListener { e ->
+                onError("Error checking email: ${e.message}")
+            }
+    }
 
     fun generateUniqueUserIdOnly(
         onResult: (userId: String) -> Unit,
@@ -18,109 +35,155 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         attemptsLeft: Int = 20
     ) {
         if (attemptsLeft <= 0) {
-            onError("Could not generate unique userId.")
+            onError("Could not generate unique userId after 20 attempts.")
             return
         }
-        //generate random 5-digit number
+
         val candidate = Random.nextInt(10000, 100000).toString()
-        db.collection("Users2").whereEqualTo("userId", candidate).limit(1).get()
-            .addOnSuccessListener { q ->
-                if (!q.isEmpty) {
+
+        checkUserIdExists(
+            userId = candidate,
+            onResult = { exists ->
+                if (exists) {
                     generateUniqueUserIdOnly(onResult, onError, attemptsLeft - 1)
                 } else {
                     onResult(candidate)
                 }
+            },
+            onError = { error ->
+                onError(error)
             }
-            .addOnFailureListener { e -> onError("Failed to check uniqueness: ${e.localizedMessage}") }
+        )
     }
 
-    fun submitWithMetrics(
+    private fun checkUserIdExists(
+        userId: String,
+        onResult: (Boolean) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        db.collection("Users3")
+            .whereEqualTo("userId", userId)
+            .limit(1)
+            .get()
+            .addOnSuccessListener { query ->
+                onResult(!query.isEmpty)
+            }
+            .addOnFailureListener { e ->
+                onError("Failed to check userId: ${e.localizedMessage}")
+            }
+    }
+
+    fun createUserMetadata(
+        userId: String,
         email: String,
         userAge: Int,
         userGender: String,
-        handHeld: String,
-        metrics: FormMetrics,
-        touchPoints: List<TouchPoint>,
-        existingUserId: String?,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
-    ) {
-        val proceed: (String) -> Unit = { userId ->
-            saveSubmission(
-                email = email,
-                userId = userId,
-                userAge = userAge,
-                userGender = userGender,
-                handHeld = handHeld,
-                metrics = metrics,
-                touchPoints = touchPoints,
-                onSuccess = onSuccess,
-                onError = onError
-            )
-        }
+    ){
+        val dateFormat = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault())
+        dateFormat.timeZone = TimeZone.getTimeZone("Europe/Bratislava")
+        val currentTime = dateFormat.format(Date())
 
-        if (!existingUserId.isNullOrBlank()) {
-            proceed(existingUserId)
-        } else {
-            generateUniqueUserIdOnly(
-                onResult = { uid -> proceed(uid) },
-                onError = onError
-            )
-        }
+        val deviceId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
+        val metadata = hashMapOf(
+            "userId" to userId,
+            "email" to email,
+            "age" to userAge,
+            "gender" to userGender,
+            "deviceId" to deviceId,
+            "deviceManufacturer" to Build.MANUFACTURER,
+            "deviceModel" to Build.MODEL,
+            "androidVersion" to Build.VERSION.RELEASE,
+            "submissionCount" to 0,
+            "createdAt" to FieldValue.serverTimestamp(),
+            "timestamp" to currentTime
+        )
+
+        db.collection("Users3").document(userId)
+            .set(metadata)
+            .addOnSuccessListener { onSuccess() }
+            .addOnFailureListener { e ->
+                val errorMessage = when {
+                    e.message?.contains("PERMISSION_DENIED") == true -> "Permission denied."
+                    e.message?.contains("NETWORK_ERROR") == true -> "Network error."
+                    else -> "Error creating user: ${e.message}"
+                }
+                onError(errorMessage)
+            }
     }
 
     fun saveSubmission(
-        email: String,
         userId: String,
-        userAge: Int,
-        userGender: String,
+        submissionNumber: Int,
         handHeld: String,
-        metrics: FormMetrics,
+        dragCompleted: Boolean,
+        dragAttempts: Int,
+        dragDistance: Float,
+        dragPathLength: Float,
+        dragDurationSec: Double,
+        textRewriteCompleted: Boolean,
+        textRewriteTime: Double,
+        textEditCount: Int,
+        checkboxChecked: Boolean,
         touchPoints: List<TouchPoint>,
+        keystrokes: List<Map<String, Any>>,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
-    ) {
-        // creation of timestamp
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-        dateFormat.timeZone = TimeZone.getDefault()
+    ){
+        val dateFormat = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault())
+        dateFormat.timeZone = TimeZone.getTimeZone("Europe/Bratislava")
         val currentTime = dateFormat.format(Date())
-        val timestampId = currentTime.replace(" ", "_").replace(":", "-")
 
-        val behaviorData = metrics.buildBehaviorData(touchPoints)
-
-        // create user data structure for Firebase
         val submission = hashMapOf(
-            "age" to userAge,
-            "gender" to userGender,
+            "handUsed" to handHeld,
             "timestamp" to currentTime,
             "createdAt" to FieldValue.serverTimestamp(),
-            "deviceModel" to Build.MODEL,
-            "androidVersion" to Build.VERSION.RELEASE,
-            "handUsed" to handHeld,
-            "behavior" to behaviorData
+            "dragCompleted" to dragCompleted,
+            "dragAttempts" to dragAttempts,
+            "dragDistance" to dragDistance,
+            "dragPathLength" to dragPathLength,
+            "dragDurationSec" to dragDurationSec,
+            "textRewriteCompleted" to textRewriteCompleted,
+            "textRewriteTime" to textRewriteTime,
+            "textEditCount" to textEditCount,
+            "checkboxChecked" to checkboxChecked,
+            "touchPointsCount" to touchPoints.size,
+            "touchPoints" to touchPoints.map{ tp ->
+                mapOf(
+                    "pressure" to tp.pressure,
+                    "size" to tp.size,
+                    "x" to tp.x,
+                    "y" to tp.y,
+                    "rawX" to tp.rawX,
+                    "rawY" to tp.rawY,
+                    "touchMajor" to tp.touchMajor,
+                    "touchMinor" to tp.touchMinor,
+                    "timestampTime" to tp.timestampTime,
+                    "timestampEpochMs" to tp.timestampEpochMs,
+                    "action" to tp.action,
+                    "pointerId" to tp.pointerId,
+                    "target" to tp.target
+                )
+            },
+            "keystrokes" to keystrokes,
         )
 
-        val emailDoc = db.collection("Users2").document(email)
-        val subDoc = emailDoc.collection(timestampId).document("submission")
-
-        //parent meta: submissionCount
-        val parentMeta = mapOf(
-            "email" to email,
-            "userId" to userId,
-            "submissionCount" to FieldValue.increment(1)
-        )
+        val userDoc = db.collection("Users3").document(userId)
+        val submissionDoc = userDoc.collection("submissions").document("submission$submissionNumber")
 
         val batch = db.batch()
-        batch.set(emailDoc, parentMeta, SetOptions.merge())
-        batch.set(subDoc, submission)
+        batch.set(submissionDoc, submission)
+        batch.update(userDoc, "submissionCount", FieldValue.increment(1))
 
         batch.commit()
             .addOnSuccessListener { onSuccess() }
             .addOnFailureListener { e ->
                 val errorMessage = when {
-                    e.message?.contains("PERMISSION_DENIED") == true -> "Permission denied. Please check your data."
-                    e.message?.contains("NETWORK") == true -> "Network error. Please check your internet connection."
-                    else -> "Error saving data: ${e.message}"
+                    e.message?.contains("PERMISSION_DENIED") == true -> "Permission denied."
+                    e.message?.contains("NETWORK") == true -> "Network error."
+                    else -> "Error saving submission: ${e.message}"
                 }
                 onError(errorMessage)
             }
