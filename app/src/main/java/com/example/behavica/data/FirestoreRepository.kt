@@ -1,10 +1,12 @@
 package com.example.behavica.data
 
+import android.content.Context
+import android.provider.Settings
 import android.os.Build
 import com.example.behavica.model.TouchPoint
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import java.text.SimpleDateFormat
 import kotlin.random.Random
 import java.util.*
@@ -32,10 +34,10 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     fun generateUniqueUserIdOnly(
         onResult: (userId: String) -> Unit,
         onError: (error: String) -> Unit,
-        attemptsLeft: Int = 20
+        attemptsLeft: Int = 50
     ) {
         if (attemptsLeft <= 0) {
-            onError("Could not generate unique userId after 20 attempts.")
+            onError("Could not generate unique userId after 50 attempts.")
             return
         }
 
@@ -73,7 +75,9 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
             }
     }
 
+    @android.annotation.SuppressLint("HardwareIds")
     fun createUserMetadata(
+        context: Context,
         userId: String,
         email: String,
         userAge: Int,
@@ -85,7 +89,8 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         dateFormat.timeZone = TimeZone.getTimeZone("Europe/Bratislava")
         val currentTime = dateFormat.format(Date())
 
-        val deviceId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+        // Device ID ensures one-time participation per device (similar to fraud prevention).
+        val deviceId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: ""
 
         val metadata = hashMapOf(
             "userId" to userId,
@@ -175,7 +180,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
 
         val batch = db.batch()
         batch.set(submissionDoc, submission)
-        batch.update(userDoc, "submissionCount", FieldValue.increment(1))
+        batch.set(userDoc, mapOf("submissionCount" to FieldValue.increment(1)), SetOptions.merge())
 
         batch.commit()
             .addOnSuccessListener { onSuccess() }

@@ -2,6 +2,9 @@ package com.example.behavica.ui
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.ActionMode
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
@@ -49,6 +52,14 @@ class SubmissionActivity : AppCompatActivity() {
 
     private val targetText = "Behavica"
 
+    // Reusable callback to disable copy/paste
+    private val disableActionModeCallback = object : ActionMode.Callback {
+        override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean = false
+        override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean = false
+        override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean = false
+        override fun onDestroyActionMode(mode: ActionMode?) {}
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -66,7 +77,7 @@ class SubmissionActivity : AppCompatActivity() {
 
         initViews()
         submissionTitle.text = "Submission $submissionNumber of 5"
-        targetTextView.text = "Copy this text: \"$targetText\""
+        targetTextView.text = "Rewrite this text: \"$targetText\""
 
         behavior = BehaviorTracker()
         hand = HandDetector(this).also { it.start() }
@@ -82,11 +93,15 @@ class SubmissionActivity : AppCompatActivity() {
         setupCheckbox()
         setupSubmitButton()
 
-        behavior.attachTouchListener(rewriteTextInput, "copyTextInput")
+        behavior.attachTouchListener(rewriteTextInput, "rewriteTextInput")
         behavior.attachTouchListener(checkbox, "checkBox")
         behavior.attachTouchListener(submitButton, "submitButton")
 
-        val callback = object : OnBackPressedCallback(true) { override fun handleOnBackPressed() {} }
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                Toast.makeText(this@SubmissionActivity, "Please complete the submission", Toast.LENGTH_SHORT).show()
+            }
+        }
         onBackPressedDispatcher.addCallback(this, callback)
     }
 
@@ -120,20 +135,9 @@ class SubmissionActivity : AppCompatActivity() {
     private fun setupTextInput(){
         behavior.attachTextWatcher(rewriteTextInput)
 
-        // Disable copy/paste
-        rewriteTextInput.customSelectionActionModeCallback = object : android.view.ActionMode.Callback {
-            override fun onCreateActionMode(mode: android.view.ActionMode?, menu: android.view.Menu?): Boolean = false
-            override fun onPrepareActionMode(mode: android.view.ActionMode?, menu: android.view.Menu?): Boolean = false
-            override fun onActionItemClicked(mode: android.view.ActionMode?, item: android.view.MenuItem?): Boolean = false
-            override fun onDestroyActionMode(mode: android.view.ActionMode?) {}
-        }
-
-        rewriteTextInput.customInsertionActionModeCallback = object : android.view.ActionMode.Callback {
-            override fun onCreateActionMode(mode: android.view.ActionMode?, menu: android.view.Menu?): Boolean = false
-            override fun onPrepareActionMode(mode: android.view.ActionMode?, menu: android.view.Menu?): Boolean = false
-            override fun onActionItemClicked(mode: android.view.ActionMode?, item: android.view.MenuItem?): Boolean = false
-            override fun onDestroyActionMode(mode: android.view.ActionMode?) {}
-        }
+        // Disable copy/paste using the reusable callback
+        rewriteTextInput.customSelectionActionModeCallback = disableActionModeCallback
+        rewriteTextInput.customInsertionActionModeCallback = disableActionModeCallback
 
         // Disable long press
         rewriteTextInput.setOnLongClickListener { true }

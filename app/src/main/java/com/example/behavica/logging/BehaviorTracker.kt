@@ -13,6 +13,7 @@ import com.google.android.material.textfield.TextInputEditText
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 import kotlin.math.pow
 import kotlin.math.sqrt
 
@@ -245,7 +246,9 @@ class BehaviorTracker() {
     }
 
     private fun recordTouchPoint(e: MotionEvent, targetName: String) {
-        val tsString = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault()).format(Date())
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
+        dateFormat.timeZone = TimeZone.getTimeZone("Europe/Bratislava")
+        val tsString = dateFormat.format(Date())
 
         val epochMs = System.currentTimeMillis()
         val actionStr = TouchPoint.actionToString(e.actionMasked)

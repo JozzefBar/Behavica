@@ -33,25 +33,23 @@ class EmailCheckActivity : AppCompatActivity() {
 
     private val repo by lazy { FirestoreRepository(FirebaseFirestore.getInstance()) }
     private val auth by lazy { FirebaseAuth.getInstance() }
-    private val appStartHandler by lazy { AppStartHandler() }
+    private val appStartHandler by lazy { AppStartHandler(this) }
 
     private val handler = Handler(Looper.getMainLooper())
     private var pendingCheck: Runnable? = null
     private var emailChecked = false
-    private var emailExists = false
+    private var emailAvailable = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContentView(R.layout.email_check_activity)
-
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.emailCheck)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
 
         checkAppStart()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Cleanup handler to prevent memory leak
+        pendingCheck?.let { handler.removeCallbacks(it) }
     }
 
     private fun checkAppStart() {
@@ -115,21 +113,25 @@ class EmailCheckActivity : AppCompatActivity() {
                 val email = s?.toString()?.trim().orEmpty()
                 val isValid = Patterns.EMAIL_ADDRESS.matcher(email).matches()
 
+                // Update input field error state
                 emailInput.error = when {
                     email.isEmpty() -> "Email is required"
                     !isValid -> "Invalid email format"
                     else -> null
                 }
-                emailLayout.helperText = if (isValid) "Looks good" else null
+                emailLayout.helperText = if (isValid) "Checking..." else null
 
+                // Reset status
                 statusText.visibility = View.GONE
                 emailChecked = false
-                emailExists = false
+                emailAvailable = false
                 startButton.isEnabled = false
 
-                // Debounce email check
+                // Cancel any pending check
+                pendingCheck?.let { handler.removeCallbacks(it) }
+
+                // Debounce email check (only if valid format)
                 if (isValid) {
-                    pendingCheck?.let { handler.removeCallbacks(it) }
                     pendingCheck = Runnable {
                         checkEmailInDatabase(email)
                     }
@@ -145,24 +147,29 @@ class EmailCheckActivity : AppCompatActivity() {
         statusText.visibility = View.GONE
 
         repo.checkEmailExists(
-            email = email.lowercase(),
+            email = email.trim().lowercase(),
             onResult = { exists, message ->
                 progressBar.visibility = View.GONE
                 emailChecked = true
-                emailExists = exists
+                emailAvailable = !exists
 
                 if (exists) {
+                    emailLayout.helperText = null
                     showStatus(message, true)
                     startButton.isEnabled = false
                 } else {
+                    emailLayout.helperText = "✓ Email is available"
                     showStatus(message, false)
                     startButton.isEnabled = true
                 }
             },
             onError = { error ->
                 progressBar.visibility = View.GONE
+                emailLayout.helperText = null
                 showStatus("Error checking email: $error", true)
                 startButton.isEnabled = false
+                emailChecked = false
+                emailAvailable = false
             }
         )
     }
@@ -171,6 +178,22 @@ class EmailCheckActivity : AppCompatActivity() {
         startButton.setOnClickListener {
             val email = emailInput.text.toString().trim().lowercase()
 
+            // Cancel any pending debounced check
+            pendingCheck?.let { handler.removeCallbacks(it) }
+
+            // Validate email format
+            if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                showStatus("Please enter a valid email", true)
+                return@setOnClickListener
+            }
+
+            // If email was already checked and is available, proceed directly
+            if (emailChecked && emailAvailable) {
+                generateUserIdAndProceed(email)
+                return@setOnClickListener
+            }
+
+            // Otherwise, check email one more time before proceeding
             progressBar.visibility = View.VISIBLE
             startButton.isEnabled = false
             startButton.text = "Checking..."
@@ -199,11 +222,12 @@ class EmailCheckActivity : AppCompatActivity() {
 
     private fun generateUserIdAndProceed(email: String) {
         startButton.text = "Generating ID..."
+        startButton.isEnabled = false
+        progressBar.visibility = View.VISIBLE
 
         repo.generateUniqueUserIdOnly(
             onResult = { userId ->
                 progressBar.visibility = View.GONE
-                showStatus("User ID generated: $userId", false)
                 goToMetadata(userId, email)
             },
             onError = { error ->

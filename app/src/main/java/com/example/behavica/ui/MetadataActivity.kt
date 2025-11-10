@@ -10,7 +10,6 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.behavica.R
 import com.example.behavica.data.FirestoreRepository
-import com.example.behavica.sensors.HandDetector
 import com.example.behavica.validation.MetadataValidator
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
@@ -36,7 +35,6 @@ class MetadataActivity : AppCompatActivity() {
     private var userId: String? = null
 
     // Helpers
-    private lateinit var hand: HandDetector
     private lateinit var repo: FirestoreRepository
     private lateinit var validator: MetadataValidator
 
@@ -60,7 +58,6 @@ class MetadataActivity : AppCompatActivity() {
         displayUserInfo()
 
         // helpers init
-        hand = HandDetector(this).also { it.start() }
         repo = FirestoreRepository(db)
         validator = MetadataValidator(userAgeLayout, genderSpinner, checkbox)
 
@@ -69,7 +66,11 @@ class MetadataActivity : AppCompatActivity() {
         setupSaveButton()
 
         // Ignore Back button
-        val callback = object : OnBackPressedCallback(true) { override fun handleOnBackPressed() {} }
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                Toast.makeText(this@MetadataActivity, "Please complete the form", Toast.LENGTH_SHORT).show()
+            }
+        }
         onBackPressedDispatcher.addCallback(this, callback)
     }
 
@@ -132,6 +133,7 @@ class MetadataActivity : AppCompatActivity() {
         val userGender = genderSpinner.selectedItem.toString()
 
         repo.createUserMetadata(
+            context = this,
             userId = userIdStr,
             email = email,
             userAge = userAge,

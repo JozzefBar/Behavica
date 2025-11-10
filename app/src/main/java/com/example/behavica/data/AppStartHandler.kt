@@ -1,9 +1,13 @@
 package com.example.behavica.data
 
+import android.annotation.SuppressLint
+import android.content.Context
+import android.provider.Settings
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
 class AppStartHandler (
+    private val context: Context,
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 ) {
@@ -23,11 +27,16 @@ class AppStartHandler (
         )
     }
 
+    @SuppressLint("HardwareIds")  // Legitimate research use-case
     private fun checkDeviceUsage(
         onResult: (StartDestination) -> Unit,
         onError: (String) -> Unit
     ){
-        val deviceId = auth.currentUser?.uid ?: run {
+        // We need a persistent device identifier to ensure one-time participation per device.
+        val deviceId = Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ANDROID_ID
+        ) ?: run {
             onError("No device ID available")
             return
         }
@@ -38,11 +47,12 @@ class AppStartHandler (
             .get()
             .addOnSuccessListener { query ->
                 if (query.isEmpty) {
-                    // Device never used - allow email check
+                    // Device never used
                     onResult(StartDestination.EmailCheck)
-                } else
-                    // All submissions completed
+                } else {
+                    // Device already used - always block
                     onResult(StartDestination.Ending)
+                }
             }
             .addOnFailureListener { e ->
                 onError("Error checking device: ${e.message}")
