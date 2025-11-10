@@ -3,6 +3,7 @@ package com.example.behavica.data
 import android.content.Context
 import android.provider.Settings
 import android.os.Build
+import com.example.behavica.R
 import com.example.behavica.model.TouchPoint
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -11,7 +12,10 @@ import java.text.SimpleDateFormat
 import kotlin.random.Random
 import java.util.*
 
-class FirestoreRepository(private val db: FirebaseFirestore) {
+class FirestoreRepository(
+    private val db: FirebaseFirestore,
+    private val context: Context
+) {
 
     fun checkEmailExists(
         email: String,
@@ -21,13 +25,13 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         db.collection("Users3").whereEqualTo("email", email.lowercase()).limit(1).get()
             .addOnSuccessListener { query ->
                 if (query.isEmpty) {
-                    onResult(false, "Email is available")
+                    onResult(false, context.getString(R.string.email_available))
                 } else {
-                    onResult(true, "This email is already registered. Please use a different email.")
+                    onResult(true, context.getString(R.string.email_already_registered))
                 }
             }
             .addOnFailureListener { e ->
-                onError("Error checking email: ${e.message}")
+                onError(context.getString(R.string.error_checking_email, e.message))
             }
     }
 
@@ -37,7 +41,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         attemptsLeft: Int = 50
     ) {
         if (attemptsLeft <= 0) {
-            onError("Could not generate unique userId after 50 attempts.")
+            onError(context.getString(R.string.could_not_generate_userid))
             return
         }
 
@@ -71,13 +75,12 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
                 onResult(!query.isEmpty)
             }
             .addOnFailureListener { e ->
-                onError("Failed to check userId: ${e.localizedMessage}")
+                onError(context.getString(R.string.failed_to_check_userid, e.localizedMessage))
             }
     }
 
     @android.annotation.SuppressLint("HardwareIds")
     fun createUserMetadata(
-        context: Context,
         userId: String,
         email: String,
         userAge: Int,
@@ -93,7 +96,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         val deviceId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: ""
 
         val metadata = hashMapOf(
-            "userId" to userId,
+            "userId" to userId.toInt(),
             "email" to email,
             "age" to userAge,
             "gender" to userGender,
@@ -111,9 +114,9 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
             .addOnSuccessListener { onSuccess() }
             .addOnFailureListener { e ->
                 val errorMessage = when {
-                    e.message?.contains("PERMISSION_DENIED") == true -> "Permission denied."
-                    e.message?.contains("NETWORK_ERROR") == true -> "Network error."
-                    else -> "Error creating user: ${e.message}"
+                    e.message?.contains("PERMISSION_DENIED") == true -> context.getString(R.string.permission_denied)
+                    e.message?.contains("NETWORK_ERROR") == true -> context.getString(R.string.network_error)
+                    else -> context.getString(R.string.error_creating_user, e.message)
                 }
                 onError(errorMessage)
             }
@@ -132,8 +135,10 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         textRewriteTime: Double,
         textEditCount: Int,
         checkboxChecked: Boolean,
+        touchPointsCount: Int,
         touchPoints: List<TouchPoint>,
         keystrokes: List<Map<String, Any>>,
+        submissionDurationSec: Double,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ){
@@ -145,6 +150,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
             "handUsed" to handHeld,
             "timestamp" to currentTime,
             "createdAt" to FieldValue.serverTimestamp(),
+            "submissionDurationSec" to submissionDurationSec,
             "dragCompleted" to dragCompleted,
             "dragAttempts" to dragAttempts,
             "dragDistance" to dragDistance,
@@ -154,7 +160,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
             "textRewriteTime" to textRewriteTime,
             "textEditCount" to textEditCount,
             "checkboxChecked" to checkboxChecked,
-            "touchPointsCount" to touchPoints.size,
+            "touchPointsCount" to touchPointsCount,
             "touchPoints" to touchPoints.map{ tp ->
                 mapOf(
                     "pressure" to tp.pressure,
@@ -186,9 +192,9 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
             .addOnSuccessListener { onSuccess() }
             .addOnFailureListener { e ->
                 val errorMessage = when {
-                    e.message?.contains("PERMISSION_DENIED") == true -> "Permission denied."
-                    e.message?.contains("NETWORK") == true -> "Network error."
-                    else -> "Error saving submission: ${e.message}"
+                    e.message?.contains("PERMISSION_DENIED") == true -> context.getString(R.string.permission_denied)
+                    e.message?.contains("NETWORK") == true -> context.getString(R.string.network_error)
+                    else -> context.getString(R.string.error_saving_submission, e.message)
                 }
                 onError(errorMessage)
             }

@@ -76,13 +76,15 @@ class SubmissionActivity : AppCompatActivity() {
         submissionNumber = intent.getIntExtra("submissionNumber", 1)
 
         initViews()
-        submissionTitle.text = "Submission $submissionNumber of 5"
-        targetTextView.text = "Rewrite this text: \"$targetText\""
+        submissionTitle.text = getString(R.string.submission_title, submissionNumber)
+        targetTextView.text = getString(R.string.rewrite_text, targetText)
 
         behavior = BehaviorTracker()
         hand = HandDetector(this).also { it.start() }
-        repo = FirestoreRepository(db)
+        repo = FirestoreRepository(db, this)
         validator = SubmissionValidator()
+
+        behavior.submissionStartTime = System.currentTimeMillis()
 
         behavior.onDragStatusChanged = { completed ->
             runOnUiThread { updateDragStatus() }
@@ -99,7 +101,7 @@ class SubmissionActivity : AppCompatActivity() {
 
         val callback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                Toast.makeText(this@SubmissionActivity, "Please complete the submission", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@SubmissionActivity, R.string.please_complete_submission, Toast.LENGTH_SHORT).show()
             }
         }
         onBackPressedDispatcher.addCallback(this, callback)
@@ -150,12 +152,12 @@ class SubmissionActivity : AppCompatActivity() {
 
     private fun updateDragStatus() {
         if(behavior.dragCompleted){
-            dragStatusText.text = "✓ Drag test completed!"
+            dragStatusText.text = getString(R.string.drag_completed)
             dragStatusText.setTextColor(resources.getColor(android.R.color.holo_green_dark, null))
             dragStatusText.visibility = View.VISIBLE
         }
         else if(behavior.dragAttempts > 0){
-            dragStatusText.text = "Please try again - drag the circle all the way to B"
+            dragStatusText.text = getString(R.string.drag_try_again)
             dragStatusText.setTextColor(resources.getColor(android.R.color.holo_red_dark, null))
             dragStatusText.visibility = View.VISIBLE
         }
@@ -170,7 +172,7 @@ class SubmissionActivity : AppCompatActivity() {
                     checkbox = checkbox
                 )) {
                 submitButton.isEnabled = false
-                submitButton.text = "Saving..."
+                submitButton.text = getString(R.string.saving)
                 ensureAnonAuthThen { submitToFirebase() }
             }
         }
@@ -185,9 +187,9 @@ class SubmissionActivity : AppCompatActivity() {
         auth.signInAnonymously()
             .addOnSuccessListener { onReady() }
             .addOnFailureListener { e ->
-                Toast.makeText(this, "Auth failed: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.auth_failed, e.message), Toast.LENGTH_LONG).show()
                 submitButton.isEnabled = true
-                submitButton.text = "Submit"
+                submitButton.text = getString(R.string.submit)
             }
     }
 
@@ -209,10 +211,12 @@ class SubmissionActivity : AppCompatActivity() {
             textRewriteTime = behavior.getTextRewriteTime(),
             textEditCount = behavior.textEditCount,
             checkboxChecked = behavior.checkboxChecked,
+            touchPointsCount = behavior.getTouchPoints().size,
             touchPoints = behavior.getTouchPoints(),
             keystrokes = behavior.getKeystrokes(),
+            submissionDurationSec = behavior.getSubmissionDurationSec(),
             onSuccess = {
-                Toast.makeText(this, "Submission $submissionNumber saved!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.submission_saved, submissionNumber), Toast.LENGTH_SHORT).show()
 
                 if(submissionNumber < 5)
                     goToNextSubmission(userIdStr, submissionNumber + 1)
@@ -222,7 +226,7 @@ class SubmissionActivity : AppCompatActivity() {
             onError = { eMsg ->
                 Toast.makeText(this, eMsg, Toast.LENGTH_LONG).show()
                 submitButton.isEnabled = true
-                submitButton.text = "Submit"
+                submitButton.text = getString(R.string.submit)
             }
         )
     }

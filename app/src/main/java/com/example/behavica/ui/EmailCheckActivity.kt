@@ -31,7 +31,7 @@ class EmailCheckActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
     private lateinit var statusText: TextView
 
-    private val repo by lazy { FirestoreRepository(FirebaseFirestore.getInstance()) }
+    private val repo by lazy { FirestoreRepository(FirebaseFirestore.getInstance(), this) }
     private val auth by lazy { FirebaseAuth.getInstance() }
     private val appStartHandler by lazy { AppStartHandler(this) }
 
@@ -101,7 +101,7 @@ class EmailCheckActivity : AppCompatActivity() {
 
         auth.signInAnonymously()
             .addOnFailureListener { e ->
-                showStatus("Auth failed: ${e.message}", true)
+                showStatus(getString(R.string.auth_failed, e.message), true)
             }
     }
 
@@ -115,11 +115,11 @@ class EmailCheckActivity : AppCompatActivity() {
 
                 // Update input field error state
                 emailInput.error = when {
-                    email.isEmpty() -> "Email is required"
-                    !isValid -> "Invalid email format"
+                    email.isEmpty() -> getString(R.string.email_required)
+                    !isValid -> getString(R.string.invalid_email_format)
                     else -> null
                 }
-                emailLayout.helperText = if (isValid) "Checking..." else null
+                emailLayout.helperText = if (isValid) getString(R.string.checking) else null
 
                 // Reset status
                 statusText.visibility = View.GONE
@@ -158,7 +158,7 @@ class EmailCheckActivity : AppCompatActivity() {
                     showStatus(message, true)
                     startButton.isEnabled = false
                 } else {
-                    emailLayout.helperText = "✓ Email is available"
+                    emailLayout.helperText = getString(R.string.email_available)
                     showStatus(message, false)
                     startButton.isEnabled = true
                 }
@@ -166,7 +166,7 @@ class EmailCheckActivity : AppCompatActivity() {
             onError = { error ->
                 progressBar.visibility = View.GONE
                 emailLayout.helperText = null
-                showStatus("Error checking email: $error", true)
+                showStatus(getString(R.string.error_checking_email, error), true)
                 startButton.isEnabled = false
                 emailChecked = false
                 emailAvailable = false
@@ -183,7 +183,7 @@ class EmailCheckActivity : AppCompatActivity() {
 
             // Validate email format
             if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-                showStatus("Please enter a valid email", true)
+                showStatus(getString(R.string.please_enter_valid_email), true)
                 return@setOnClickListener
             }
 
@@ -196,7 +196,7 @@ class EmailCheckActivity : AppCompatActivity() {
             // Otherwise, check email one more time before proceeding
             progressBar.visibility = View.VISIBLE
             startButton.isEnabled = false
-            startButton.text = "Checking..."
+            startButton.text = getString(R.string.checking)
 
             repo.checkEmailExists(
                 email = email,
@@ -205,23 +205,23 @@ class EmailCheckActivity : AppCompatActivity() {
                         progressBar.visibility = View.GONE
                         showStatus(message, true)
                         startButton.isEnabled = true
-                        startButton.text = "Start"
+                        startButton.text = getString(R.string.start)
                     } else {
                         generateUserIdAndProceed(email)
                     }
                 },
                 onError = { error ->
                     progressBar.visibility = View.GONE
-                    showStatus("Error: $error", true)
+                    showStatus(getString(R.string.error_generic, error), true)
                     startButton.isEnabled = true
-                    startButton.text = "Start"
+                    startButton.text = getString(R.string.start)
                 }
             )
         }
     }
 
     private fun generateUserIdAndProceed(email: String) {
-        startButton.text = "Generating ID..."
+        startButton.text = getString(R.string.generating_id)
         startButton.isEnabled = false
         progressBar.visibility = View.VISIBLE
 
@@ -232,9 +232,9 @@ class EmailCheckActivity : AppCompatActivity() {
             },
             onError = { error ->
                 progressBar.visibility = View.GONE
-                showStatus("Error: $error", true)
+                showStatus(getString(R.string.error_generic, error), true)
                 startButton.isEnabled = true
-                startButton.text = "Start"
+                startButton.text = getString(R.string.start)
             }
         )
     }

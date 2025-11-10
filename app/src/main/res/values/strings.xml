@@ -1,4 +1,81 @@
 <resources>
     <string name="app_name">Behavica</string>
 
+    <!-- EmailCheckActivity XML -->
+    <string name="enter_email_to_begin">Enter your email to begin</string>
+    <string name="email_hint">Email</string>
+    <string name="we_will_verify_email">We will verify your email</string>
+    <string name="start">Start</string>
+    <string name="timing_note">*Note: From the moment you press Start, the app records how long you take to complete the form and all timing data.*</string>
+
+    <!-- EmailCheckActivity Kotlin -->
+    <string name="email_required">Email is required</string>
+    <string name="invalid_email_format">Invalid email format</string>
+    <string name="checking">Checking…</string>
+    <string name="email_available">✓ Email is available</string>
+    <string name="email_already_registered">This email is already registered. Please use a different email.</string>
+    <string name="error_checking_email">Error checking email: %s</string>
+    <string name="please_enter_valid_email">Please enter a valid email</string>
+    <string name="auth_failed">Auth failed: %s</string>
+    <string name="generating_id">Generating ID…</string>
+    <string name="error_generic">Error: %s</string>
+
+    <!-- MetadataActivity XML -->
+    <string name="welcome_to_behavica">Welcome to Behavica</string>
+    <string name="please_provide_metadata">Please provide your metadata</string>
+    <string name="user_id_default">User ID: -</string>
+    <string name="email_default">Email: -</string>
+    <string name="age_hint">Age</string>
+    <string name="gender_label">Gender</string>
+    <string name="biometric_data_consent">I am aware that my biometric data will be collected</string>
+    <string name="save_continue">Save &amp; Continue</string>
+
+    <!-- MetadataActivity Kotlin -->
+    <string name="user_id_label">User ID: %s</string>
+    <string name="email_label">Email: %s</string>
+    <string name="select_gender">Select Gender</string>
+    <string name="male">Male</string>
+    <string name="female">Female</string>
+    <string name="other">Other</string>
+    <string name="saving">Saving…</string>
+    <string name="please_complete_form">Please complete the form</string>
+    <string name="please_enter_age">Please enter your age</string>
+    <string name="age_must_be_between">Age must be between 10 and 100</string>
+    <string name="please_select_gender">Please select your gender</string>
+    <string name="must_agree_data_collection">You must agree to data collection</string>
+    <string name="metadata_saved">Metadata saved successfully!</string>
+
+    <!-- SubmissionActivity XML -->
+    <string name="submission_default">Submission 1 of 5</string>
+    <string name="drag_instruction">Drag the blue circle from A to B</string>
+    <string name="rewrite_instruction">Rewrite this text:</string>
+    <string name="type_text_hint">Type the text here</string>
+    <string name="biometric_consent_submission">I agree to biometric data collection</string>
+    <string name="submit">Submit</string>
+
+    <!-- SubmissionActivity Kotlin -->
+    <string name="submission_title">Submission %d of 5</string>
+    <string name="rewrite_text">Rewrite this text: \"%s\"</string>
+    <string name="drag_completed">✓ Drag test completed!</string>
+    <string name="drag_try_again">Please try again - drag the circle all the way to B</string>
+    <string name="please_complete_submission">Please complete the submission</string>
+    <string name="please_complete_drag">Please complete the drag test</string>
+    <string name="please_rewrite_correctly">Please rewrite the text correctly</string>
+    <string name="submission_saved">Submission %d saved!</string>
+
+    <!-- EndingActivity XML -->
+    <string name="thank_you">Thank you for participating!!</string>
+    <string name="data_uploaded">Your data has been successfully uploaded to the database!</string>
+
+    <!-- Common -->
+    <string name="no_device_id">No device ID available</string>
+    <string name="error_checking_device">Error checking device: %s</string>
+
+    <!-- FirestoreRepository errors -->
+    <string name="could_not_generate_userid">Could not generate unique userId after 50 attempts.</string>
+    <string name="failed_to_check_userid">Failed to check userId: %s</string>
+    <string name="permission_denied">Permission denied.</string>
+    <string name="network_error">Network error.</string>
+    <string name="error_creating_user">Error creating user: %s</string>
+    <string name="error_saving_submission">Error saving submission: %s</string>
 </resources>
