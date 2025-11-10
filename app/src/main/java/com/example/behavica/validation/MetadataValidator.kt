@@ -4,6 +4,7 @@ package com.example.behavica.validation
 import android.widget.Spinner
 import android.widget.CheckBox
 import android.widget.Toast
+import com.example.behavica.R
 import com.google.android.material.textfield.TextInputLayout
 
 class MetadataValidator(
@@ -17,27 +18,29 @@ class MetadataValidator(
     )
 
     fun validateMetadata(ageStr: String): ValidationResult  {
+        val context = userAgeLayout.context
+
         // Validate age
         if (ageStr.isEmpty()) {
-            userAgeLayout.error = "Please enter your age"
-            return ValidationResult(false, "Please enter your age")
+            userAgeLayout.error = context.getString(R.string.please_enter_age)
+            return ValidationResult(false, context.getString(R.string.please_enter_age))
         }
         val userAge = ageStr.toIntOrNull()
         if (userAge == null || userAge < 10 || userAge > 100) {
-            userAgeLayout.error = "Age must be between 10 and 100"
-            return ValidationResult(false, "Age must be between 10 and 100")
+            userAgeLayout.error = context.getString(R.string.age_must_be_between)
+            return ValidationResult(false, context.getString(R.string.age_must_be_between))
         }
         userAgeLayout.error = null
 
         // Validate gender
         if (genderSpinner.selectedItemPosition == 0) {
-            Toast.makeText(userAgeLayout.context, "Please select your gender", Toast.LENGTH_LONG).show()
-            return ValidationResult(false, "Please select your gender")
+            Toast.makeText(context, R.string.please_select_gender, Toast.LENGTH_LONG).show()
+            return ValidationResult(false, context.getString(R.string.please_select_gender))
         }
 
         // Validate checkbox
         if (!checkBox.isChecked) {
-            return ValidationResult(false, "You must agree to data collection")
+            return ValidationResult(false, context.getString(R.string.must_agree_data_collection))
         }
 
         return ValidationResult(true)

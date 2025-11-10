@@ -22,6 +22,9 @@ class BehaviorTracker() {
     private val touchPoints: MutableList<TouchPoint> = mutableListOf()
     private val keystrokes: MutableList<Map<String, Any>> = mutableListOf()
 
+    // Submission timing
+    var submissionStartTime: Long = 0
+
     //Drag test metrics
     var dragStartTime: Long = 0
     var dragEndTime: Long = 0
@@ -304,6 +307,12 @@ class BehaviorTracker() {
         } catch (_: Throwable) {
             null
         }
+
+    fun getSubmissionDurationSec(): Double {
+        return if (submissionStartTime > 0)
+            (System.currentTimeMillis() - submissionStartTime) / 1000.0
+        else -1.0
+    }
 
     fun getDragDurationSec(): Double {
         return if (dragStartTime > 0 && dragEndTime > dragStartTime)

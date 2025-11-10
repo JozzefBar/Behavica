@@ -24,7 +24,7 @@
                 android:id="@+id/startText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Enter your email to begin"
+                android:text="@string/enter_email_to_begin"
                 android:textSize="24sp"
                 android:gravity="center"
                 android:paddingBottom="8dp"/>
@@ -33,9 +33,9 @@
                 android:id="@+id/emailLayout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Email"
+                android:hint="@string/email_hint"
                 android:layout_marginBottom="12dp"
-                app:helperText="We will verify your email">
+                app:helperText="@string/we_will_verify_email">
 
             <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/emailInput"
@@ -57,7 +57,7 @@
                 android:id="@+id/startButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Start"/>
+                android:text="@string/start"/>
 
         <!-- status whether there is an email in DB -->
         <TextView
@@ -74,7 +74,7 @@
                 android:id="@+id/infoText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="*Note: From the moment you press Start, the app records how long you take to complete the form and all timing data.*"
+                android:text="@string/timing_note"
                 android:textSize="12sp"
                 android:textStyle="italic"
                 android:gravity="center"

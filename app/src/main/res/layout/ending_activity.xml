@@ -19,7 +19,7 @@
             android:gravity="center">
 
         <TextView
-                android:text="Thank you for participating!!"
+                android:text="@string/thank_you"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:id="@+id/textView"
@@ -28,7 +28,7 @@
                 android:gravity="center"/>
 
         <TextView
-                android:text=" Your data has been successfully uploaded to the database!"
+                android:text="@string/data_uploaded"
                 android:layout_width="295dp"
                 android:layout_height="wrap_content"
                 android:id="@+id/textView3"

@@ -58,7 +58,7 @@ class MetadataActivity : AppCompatActivity() {
         displayUserInfo()
 
         // helpers init
-        repo = FirestoreRepository(db)
+        repo = FirestoreRepository(db, this)
         validator = MetadataValidator(userAgeLayout, genderSpinner, checkbox)
 
         // Setups
@@ -68,7 +68,7 @@ class MetadataActivity : AppCompatActivity() {
         // Ignore Back button
         val callback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                Toast.makeText(this@MetadataActivity, "Please complete the form", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MetadataActivity, R.string.please_complete_form, Toast.LENGTH_SHORT).show()
             }
         }
         onBackPressedDispatcher.addCallback(this, callback)
@@ -85,12 +85,17 @@ class MetadataActivity : AppCompatActivity() {
     }
 
     private fun displayUserInfo() {
-        userIdText.text = "User ID: ${userId ?: "—"}"
-        emailText.text = "Email: ${userEmail ?: "—"}"
+        userIdText.text = getString(R.string.user_id_label, userId ?: "—")
+        emailText.text = getString(R.string.email_label, userEmail ?: "—")
     }
 
     private fun setupGenderSpinner() {
-        val genderOptions = arrayOf("Select Gender", "Male", "Female", "Other")
+        val genderOptions = arrayOf(
+            getString(R.string.select_gender),
+            getString(R.string.male),
+            getString(R.string.female),
+            getString(R.string.other)
+        )
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, genderOptions)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         genderSpinner.adapter = adapter
@@ -102,7 +107,7 @@ class MetadataActivity : AppCompatActivity() {
 
             if (validationResult.isValid) {
                 saveButton.isEnabled = false
-                saveButton.text = "Saving..."
+                saveButton.text = getString(R.string.saving)
                 ensureAnonAuthThen { saveMetadata() }
             } else {
                 Toast.makeText(this, validationResult.errorMessage, Toast.LENGTH_LONG).show()
@@ -119,9 +124,9 @@ class MetadataActivity : AppCompatActivity() {
         auth.signInAnonymously()
             .addOnSuccessListener { onReady() }
             .addOnFailureListener { e ->
-                Toast.makeText(this, "Auth failed: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.auth_failed, e.message), Toast.LENGTH_LONG).show()
                 saveButton.isEnabled = true
-                saveButton.text = "Save & Continue"
+                saveButton.text = getString(R.string.save_continue)
             }
     }
 
@@ -133,19 +138,18 @@ class MetadataActivity : AppCompatActivity() {
         val userGender = genderSpinner.selectedItem.toString()
 
         repo.createUserMetadata(
-            context = this,
             userId = userIdStr,
             email = email,
             userAge = userAge,
             userGender = userGender,
             onSuccess = {
-                Toast.makeText(this, "Metadata saved successfully!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.metadata_saved, Toast.LENGTH_SHORT).show()
                 goToSubmission(userIdStr)
             },
             onError = { eMsg ->
                 Toast.makeText(this, eMsg, Toast.LENGTH_LONG).show()
                 saveButton.isEnabled = true
-                saveButton.text = "Save & Continue"
+                saveButton.text = getString(R.string.save_continue)
             }
         )
     }

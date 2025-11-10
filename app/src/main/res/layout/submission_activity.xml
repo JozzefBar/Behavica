@@ -23,7 +23,7 @@
 
             <TextView
                     android:id="@+id/submissionTitle"
-                    android:text="Submission 1 of 5"
+                    android:text="@string/submission_default"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textStyle="bold"
@@ -35,7 +35,7 @@
                     android:id="@+id/moveBarArea"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Drag the blue circle from A to B"
+                    android:text="@string/drag_instruction"
                     android:textAlignment="center"
                     android:textSize="18sp"
                     android:textStyle="bold"
@@ -113,7 +113,7 @@
                     android:id="@+id/targetTextView"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Rewrite this text:"
+                    android:text="@string/rewrite_instruction"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:layout_marginTop="16dp"
@@ -125,7 +125,7 @@
                     android:id="@+id/rewriteTextInput"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Type the text here"
+                    android:hint="@string/type_text_hint"
                     android:inputType="text"
                     android:minHeight="48dp"
                     android:layout_marginBottom="12dp"
@@ -133,7 +133,7 @@
                     android:longClickable="false"/>
 
             <CheckBox
-                    android:text="I agree to biometric data collection"
+                    android:text="@string/biometric_consent_submission"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:id="@+id/checkBox"
@@ -141,7 +141,7 @@
                     android:layout_marginBottom="16dp"/>
 
             <Button
-                    android:text="Submit"
+                    android:text="@string/submit"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:id="@+id/submitButton"
