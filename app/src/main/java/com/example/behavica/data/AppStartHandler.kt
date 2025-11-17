@@ -1,43 +1,42 @@
 package com.example.behavica.data
 
+import com.example.behavica.R
 import android.annotation.SuppressLint
 import android.content.Context
 import android.provider.Settings
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
 class AppStartHandler (
     private val context: Context,
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+    private val repo: FirestoreRepository = FirestoreRepository(db, context)
 ) {
 
     sealed class StartDestination {
         object EmailCheck : StartDestination()
-        object Ending : StartDestination()
+        data class EmailCheckBlocked(val message: String) : StartDestination()
     }
 
     fun determineStartDestination(
         onResult: (StartDestination) -> Unit,
         onError: (String) -> Unit
     ){
-        ensureAnonAuth(
+        repo.ensureAnonAuth(
             onReady = { checkDeviceUsage(onResult, onError) },
             onError = onError
         )
     }
 
-    @SuppressLint("HardwareIds")  // Legitimate research use-case
+    @SuppressLint("HardwareIds")
     private fun checkDeviceUsage(
         onResult: (StartDestination) -> Unit,
         onError: (String) -> Unit
     ){
-        // We need a persistent device identifier to ensure one-time participation per device.
         val deviceId = Settings.Secure.getString(
             context.contentResolver,
             Settings.Secure.ANDROID_ID
         ) ?: run {
-            onError("No device ID available")
+            onError(context.getString(R.string.no_device_id))
             return
         }
 
@@ -47,31 +46,13 @@ class AppStartHandler (
             .get()
             .addOnSuccessListener { query ->
                 if (query.isEmpty) {
-                    // Device never used
                     onResult(StartDestination.EmailCheck)
                 } else {
-                    // Device already used - always block
-                    onResult(StartDestination.Ending)
+                    onResult(StartDestination.EmailCheckBlocked(context.getString(R.string.device_already_used)))
                 }
             }
             .addOnFailureListener { e ->
-                onError("Error checking device: ${e.message}")
-            }
-    }
-
-    private fun ensureAnonAuth(
-        onReady: () -> Unit,
-        onError: (String) -> Unit
-    ) {
-        if (auth.currentUser != null) {
-            onReady()
-            return
-        }
-
-        auth.signInAnonymously()
-            .addOnSuccessListener { onReady() }
-            .addOnFailureListener { e ->
-                onError("Auth failed: ${e.message}")
+                onError(context.getString(R.string.error_checking_device, e.message))
             }
     }
 }

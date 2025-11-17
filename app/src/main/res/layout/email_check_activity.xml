@@ -21,11 +21,21 @@
             app:layout_constraintBottom_toBottomOf="parent">
 
         <TextView
+                android:id="@+id/welcomeTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/welcome_to_behavica"
+                android:textSize="32sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:padding="24dp"/>
+
+        <TextView
                 android:id="@+id/startText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/enter_email_to_begin"
-                android:textSize="24sp"
+                android:textSize="20sp"
                 android:gravity="center"
                 android:paddingBottom="8dp"/>
 

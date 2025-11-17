@@ -4,7 +4,9 @@ import android.content.Context
 import android.provider.Settings
 import android.os.Build
 import com.example.behavica.R
+import com.example.behavica.model.SensorReading
 import com.example.behavica.model.TouchPoint
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
@@ -14,8 +16,24 @@ import java.util.*
 
 class FirestoreRepository(
     private val db: FirebaseFirestore,
-    private val context: Context
+    private val context: Context,
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 ) {
+
+    fun ensureAnonAuth(
+        onReady: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        if (auth.currentUser != null) {
+            onReady()
+            return
+        }
+        auth.signInAnonymously()
+            .addOnSuccessListener { onReady() }
+            .addOnFailureListener { e ->
+                onError(context.getString(R.string.auth_failed, e.message))
+            }
+    }
 
     fun checkEmailExists(
         email: String,
@@ -68,7 +86,7 @@ class FirestoreRepository(
         onError: (String) -> Unit
     ) {
         db.collection("Users3")
-            .whereEqualTo("userId", userId)
+            .whereEqualTo("userId", userId.toInt())
             .limit(1)
             .get()
             .addOnSuccessListener { query ->
@@ -125,19 +143,18 @@ class FirestoreRepository(
     fun saveSubmission(
         userId: String,
         submissionNumber: Int,
-        handHeld: String,
-        dragCompleted: Boolean,
         dragAttempts: Int,
         dragDistance: Float,
         dragPathLength: Float,
         dragDurationSec: Double,
-        textRewriteCompleted: Boolean,
         textRewriteTime: Double,
+        averageWordTime: Double,
         textEditCount: Int,
-        checkboxChecked: Boolean,
         touchPointsCount: Int,
         touchPoints: List<TouchPoint>,
         keystrokes: List<Map<String, Any>>,
+        sensorDataCount: Int,
+        sensorData: List<SensorReading>,
         submissionDurationSec: Double,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
@@ -147,19 +164,16 @@ class FirestoreRepository(
         val currentTime = dateFormat.format(Date())
 
         val submission = hashMapOf(
-            "handUsed" to handHeld,
             "timestamp" to currentTime,
             "createdAt" to FieldValue.serverTimestamp(),
             "submissionDurationSec" to submissionDurationSec,
-            "dragCompleted" to dragCompleted,
             "dragAttempts" to dragAttempts,
             "dragDistance" to dragDistance,
             "dragPathLength" to dragPathLength,
             "dragDurationSec" to dragDurationSec,
-            "textRewriteCompleted" to textRewriteCompleted,
             "textRewriteTime" to textRewriteTime,
+            "averageWordTime" to averageWordTime,
             "textEditCount" to textEditCount,
-            "checkboxChecked" to checkboxChecked,
             "touchPointsCount" to touchPointsCount,
             "touchPoints" to touchPoints.map{ tp ->
                 mapOf(
@@ -176,6 +190,18 @@ class FirestoreRepository(
                     "action" to tp.action,
                     "pointerId" to tp.pointerId,
                     "target" to tp.target
+                )
+            },
+            "sensorDataCount" to sensorDataCount,
+            "sensorData" to sensorData.map { sr ->
+                mapOf(
+                    "timestamp" to sr.timestamp,
+                    "accelX" to sr.accelX,
+                    "accelY" to sr.accelY,
+                    "accelZ" to sr.accelZ,
+                    "gyroX" to sr.gyroX,
+                    "gyroY" to sr.gyroY,
+                    "gyroZ" to sr.gyroZ
                 )
             },
             "keystrokes" to keystrokes,

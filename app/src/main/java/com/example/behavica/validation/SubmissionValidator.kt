@@ -3,13 +3,11 @@ package com.example.behavica.validation
 import android.widget.CheckBox
 import android.widget.Toast
 import com.example.behavica.R
-import com.google.android.material.textfield.TextInputEditText
 
 class SubmissionValidator{
     fun validateSubmission(
         dragCompleted: Boolean,
-        textInput: TextInputEditText,
-        targetText: String,
+        allWordsCompleted: Boolean,
         checkbox: CheckBox
     ):Boolean{
         val context = checkbox.context
@@ -19,9 +17,8 @@ class SubmissionValidator{
             return false
         }
 
-        val enteredText = textInput.text.toString().trim()
-        if(enteredText != targetText){
-            Toast.makeText(context, R.string.please_rewrite_correctly, Toast.LENGTH_LONG).show()
+        if(!allWordsCompleted){
+            Toast.makeText(context, R.string.please_rewrite_all_words, Toast.LENGTH_LONG).show()
             return false
         }
 

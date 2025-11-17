@@ -13,7 +13,6 @@ import com.example.behavica.data.FirestoreRepository
 import com.example.behavica.validation.MetadataValidator
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
 class MetadataActivity : AppCompatActivity() {
@@ -28,7 +27,6 @@ class MetadataActivity : AppCompatActivity() {
 
     // Firebase
     private lateinit var db: FirebaseFirestore
-    private val auth by lazy { FirebaseAuth.getInstance() }
 
     // Email from pre-screen
     private var userEmail: String? = null
@@ -108,26 +106,18 @@ class MetadataActivity : AppCompatActivity() {
             if (validationResult.isValid) {
                 saveButton.isEnabled = false
                 saveButton.text = getString(R.string.saving)
-                ensureAnonAuthThen { saveMetadata() }
+                repo.ensureAnonAuth(
+                    onReady = { saveMetadata() },
+                    onError = { error ->
+                        Toast.makeText(this, error, Toast.LENGTH_LONG).show()
+                        saveButton.isEnabled = true
+                        saveButton.text = getString(R.string.save_continue)
+                    }
+                )
             } else {
                 Toast.makeText(this, validationResult.errorMessage, Toast.LENGTH_LONG).show()
             }
         }
-    }
-
-    private fun ensureAnonAuthThen(onReady: () -> Unit) {
-        val user = auth.currentUser
-        if (user != null) {
-            onReady()
-            return
-        }
-        auth.signInAnonymously()
-            .addOnSuccessListener { onReady() }
-            .addOnFailureListener { e ->
-                Toast.makeText(this, getString(R.string.auth_failed, e.message), Toast.LENGTH_LONG).show()
-                saveButton.isEnabled = true
-                saveButton.text = getString(R.string.save_continue)
-            }
     }
 
     // Save to Firestore

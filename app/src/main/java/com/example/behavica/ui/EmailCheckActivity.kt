@@ -59,16 +59,22 @@ class EmailCheckActivity : AppCompatActivity() {
                     is AppStartHandler.StartDestination.EmailCheck -> {
                         initializeEmailCheckScreen()
                     }
-                    is AppStartHandler.StartDestination.Ending -> {
-                        goToFinalScreen()
+                    is AppStartHandler.StartDestination.EmailCheckBlocked -> {
+                        initializeEmailCheckScreen()
+                        showDeviceBlockedError(destination.message)
                     }
                 }
             },
             onError = { error ->
-                // On error, show email check screen
                 initializeEmailCheckScreen()
             }
         )
+    }
+
+    private fun showDeviceBlockedError(message: String) {
+        emailInput.isEnabled = false
+        startButton.isEnabled = false
+        showStatus(message, true)
     }
 
     private fun initializeEmailCheckScreen() {
@@ -254,11 +260,6 @@ class EmailCheckActivity : AppCompatActivity() {
             putExtra("email", email)
         }
         startActivity(intent)
-        finish()
-    }
-
-    private fun goToFinalScreen() {
-        startActivity(Intent(this, EndingActivity::class.java))
         finish()
     }
 }

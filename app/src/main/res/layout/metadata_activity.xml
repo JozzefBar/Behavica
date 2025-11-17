@@ -20,20 +20,13 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:padding="24dp">
-            <TextView
-                    android:text="@string/welcome_to_behavica"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:id="@+id/mainTextView"
-                    android:layout_marginTop="20dp"
-                    android:textStyle="bold"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Display1"
-                    android:textAlignment="center"/>
 
             <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:id="@+id/mainTextView2"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
                     android:layout_marginTop="10dp"
                     android:textAppearance="@style/TextAppearance.AppCompat.Medium"
                     android:text="@string/please_provide_metadata"

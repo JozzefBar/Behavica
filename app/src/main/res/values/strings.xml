@@ -6,7 +6,7 @@
     <string name="email_hint">Email</string>
     <string name="we_will_verify_email">We will verify your email</string>
     <string name="start">Start</string>
-    <string name="timing_note">*Note: From the moment you press Start, the app records how long you take to complete the form and all timing data.*</string>
+    <string name="timing_note">*Note: After entering your email and metadata, a user record will be created in the database. Please provide a valid email that you use. Complete the tests naturally. Your biometric data will be recorded.*</string>
 
     <!-- EmailCheckActivity Kotlin -->
     <string name="email_required">Email is required</string>
@@ -27,7 +27,7 @@
     <string name="email_default">Email: -</string>
     <string name="age_hint">Age</string>
     <string name="gender_label">Gender</string>
-    <string name="biometric_data_consent">I am aware that my biometric data will be collected</string>
+    <string name="biometric_data_consent">I understand that I will complete 15 submissions, each involving 3 text inputs (rewriting words), drag-and-drop, and a checkbox, and that my biometric data will be collected</string>
     <string name="save_continue">Save &amp; Continue</string>
 
     <!-- MetadataActivity Kotlin -->
@@ -46,30 +46,33 @@
     <string name="metadata_saved">Metadata saved successfully!</string>
 
     <!-- SubmissionActivity XML -->
-    <string name="submission_default">Submission 1 of 5</string>
+    <string name="submission_default">Submission 1 of 15</string>
     <string name="drag_instruction">Drag the blue circle from A to B</string>
     <string name="rewrite_instruction">Rewrite this text:</string>
     <string name="type_text_hint">Type the text here</string>
-    <string name="biometric_consent_submission">I agree to biometric data collection</string>
+    <string name="biometric_consent_submission">I confirm my biometric data collection</string>
     <string name="submit">Submit</string>
 
     <!-- SubmissionActivity Kotlin -->
-    <string name="submission_title">Submission %d of 5</string>
+    <string name="submission_title">Submission %d of 15</string>
     <string name="rewrite_text">Rewrite this text: \"%s\"</string>
+    <string name="all_words_completed">✓ All words completed</string>
+    <string name="text_rewrite_complete">Text rewrite complete</string>
     <string name="drag_completed">✓ Drag test completed!</string>
     <string name="drag_try_again">Please try again - drag the circle all the way to B</string>
     <string name="please_complete_submission">Please complete the submission</string>
     <string name="please_complete_drag">Please complete the drag test</string>
-    <string name="please_rewrite_correctly">Please rewrite the text correctly</string>
+    <string name="please_rewrite_all_words">Please rewrite all words correctly</string>
     <string name="submission_saved">Submission %d saved!</string>
 
     <!-- EndingActivity XML -->
     <string name="thank_you">Thank you for participating!!</string>
     <string name="data_uploaded">Your data has been successfully uploaded to the database!</string>
 
-    <!-- Common -->
+    <!-- AppStartHandler errors -->
     <string name="no_device_id">No device ID available</string>
     <string name="error_checking_device">Error checking device: %s</string>
+    <string name="device_already_used">This device has already been used to submit data.</string>
 
     <!-- FirestoreRepository errors -->
     <string name="could_not_generate_userid">Could not generate unique userId after 50 attempts.</string>

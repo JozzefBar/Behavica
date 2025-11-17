@@ -2,6 +2,8 @@ package com.example.behavica.ui
 
 import android.content.Intent
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.ActionMode
 import android.view.Menu
 import android.view.MenuItem
@@ -19,10 +21,9 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.behavica.data.FirestoreRepository
 import com.example.behavica.logging.BehaviorTracker
-import com.example.behavica.sensors.HandDetector
+import com.example.behavica.sensors.SensorDataCollector
 import com.example.behavica.validation.SubmissionValidator
 import com.google.android.material.textfield.TextInputEditText
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
 class SubmissionActivity : AppCompatActivity() {
@@ -40,19 +41,19 @@ class SubmissionActivity : AppCompatActivity() {
     private lateinit var submitButton: Button
 
     private lateinit var db: FirebaseFirestore
-    private val auth by lazy { FirebaseAuth.getInstance() }
 
     private var userId: String? = null
     private var submissionNumber: Int = 1
 
     private lateinit var behavior: BehaviorTracker
-    private lateinit var hand: HandDetector
+    private lateinit var sensorCollector: SensorDataCollector
     private lateinit var repo: FirestoreRepository
     private lateinit var validator: SubmissionValidator
 
-    private val targetText = "Behavica"
+    private val targetWords = listOf("internet", "wifi", "laptop")
+    private var currentWordIndex = 0
+    private var isProgrammaticChange = false
 
-    // Reusable callback to disable copy/paste
     private val disableActionModeCallback = object : ActionMode.Callback {
         override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean = false
         override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean = false
@@ -77,14 +78,14 @@ class SubmissionActivity : AppCompatActivity() {
 
         initViews()
         submissionTitle.text = getString(R.string.submission_title, submissionNumber)
-        targetTextView.text = getString(R.string.rewrite_text, targetText)
+        targetTextView.text = getString(R.string.rewrite_text, targetWords[currentWordIndex])
 
         behavior = BehaviorTracker()
-        hand = HandDetector(this).also { it.start() }
+        behavior.submissionStartTime = System.currentTimeMillis()
+
+        sensorCollector = SensorDataCollector(this).also { it.start() }
         repo = FirestoreRepository(db, this)
         validator = SubmissionValidator()
-
-        behavior.submissionStartTime = System.currentTimeMillis()
 
         behavior.onDragStatusChanged = { completed ->
             runOnUiThread { updateDragStatus() }
@@ -109,7 +110,7 @@ class SubmissionActivity : AppCompatActivity() {
 
     override fun onDestroy(){
         super.onDestroy()
-        hand.stop()
+        sensorCollector.stop()
     }
 
     private fun initViews(){
@@ -135,7 +136,62 @@ class SubmissionActivity : AppCompatActivity() {
     }
 
     private fun setupTextInput(){
-        behavior.attachTextWatcher(rewriteTextInput)
+        behavior.attachTextWatcher(
+            rewriteTextInput,
+            getCurrentWord = {
+                if (currentWordIndex < targetWords.size) {
+                    targetWords[currentWordIndex]
+                } else {
+                    "completed"
+                }
+            },
+            isProgrammaticChange = { isProgrammaticChange }
+        )
+        rewriteTextInput.addTextChangedListener(object: TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val input = s.toString().trim()
+
+                if (currentWordIndex >= targetWords.size) {
+                    return
+                }
+
+                if(input.equals(targetWords[currentWordIndex], ignoreCase = true)){
+                    behavior.onWordCompleted()
+                    currentWordIndex++
+
+                    if(currentWordIndex < targetWords.size){
+                        behavior.resetForNextWord()
+
+                        isProgrammaticChange = true
+                        rewriteTextInput.setText("")
+                        isProgrammaticChange = false
+
+                        targetTextView.text = getString(R.string.rewrite_text, targetWords[currentWordIndex])
+                    }
+                    else {
+                        behavior.resetForNextWord()
+
+                        isProgrammaticChange = true
+                        rewriteTextInput.setText("")
+                        isProgrammaticChange = false
+
+                        targetTextView.animate()
+                            .alpha(0f)
+                            .setDuration(300)
+                            .withEndAction {
+                                targetTextView.visibility = View.GONE
+                                targetTextView.text = getString(R.string.all_words_completed)
+                            }
+                            .start()
+
+                        rewriteTextInput.isEnabled = false
+                        rewriteTextInput.hint = getString(R.string.text_rewrite_complete)
+                    }
+                }
+            }
+        })
 
         // Disable copy/paste using the reusable callback
         rewriteTextInput.customSelectionActionModeCallback = disableActionModeCallback
@@ -143,7 +199,6 @@ class SubmissionActivity : AppCompatActivity() {
 
         // Disable long press
         rewriteTextInput.setOnLongClickListener { true }
-
     }
 
     private fun setupCheckbox(){
@@ -167,58 +222,46 @@ class SubmissionActivity : AppCompatActivity() {
         submitButton.setOnClickListener {
             if (validator.validateSubmission(
                     dragCompleted = behavior.dragCompleted,
-                    textInput = rewriteTextInput,
-                    targetText = targetText,
+                    allWordsCompleted = currentWordIndex >= targetWords.size,
                     checkbox = checkbox
                 )) {
                 submitButton.isEnabled = false
                 submitButton.text = getString(R.string.saving)
-                ensureAnonAuthThen { submitToFirebase() }
+                repo.ensureAnonAuth(
+                    onReady = { submitToFirebase() },
+                    onError = { error ->
+                        Toast.makeText(this, error, Toast.LENGTH_LONG).show()
+                        submitButton.isEnabled = true
+                        submitButton.text = getString(R.string.submit)
+                    }
+                )
             }
         }
-    }
-
-    private fun ensureAnonAuthThen(onReady: () -> Unit) {
-        val user = auth.currentUser
-        if (user != null) {
-            onReady()
-            return
-        }
-        auth.signInAnonymously()
-            .addOnSuccessListener { onReady() }
-            .addOnFailureListener { e ->
-                Toast.makeText(this, getString(R.string.auth_failed, e.message), Toast.LENGTH_LONG).show()
-                submitButton.isEnabled = true
-                submitButton.text = getString(R.string.submit)
-            }
     }
 
     private fun submitToFirebase(){
         val userIdStr = userId.orEmpty()
 
-        val textRewriteCompleted = rewriteTextInput.text.toString().trim() == targetText
-
         repo.saveSubmission(
             userId = userIdStr,
             submissionNumber = submissionNumber,
-            handHeld = hand.currentHand(),
-            dragCompleted = behavior.dragCompleted,
             dragAttempts = behavior.dragAttempts,
             dragDistance = behavior.dragDistance,
             dragPathLength = behavior.dragPathLength,
             dragDurationSec = behavior.getDragDurationSec(),
-            textRewriteCompleted = textRewriteCompleted,
             textRewriteTime = behavior.getTextRewriteTime(),
+            averageWordTime = behavior.getAverageWordCompletionTime(),
             textEditCount = behavior.textEditCount,
-            checkboxChecked = behavior.checkboxChecked,
             touchPointsCount = behavior.getTouchPoints().size,
             touchPoints = behavior.getTouchPoints(),
             keystrokes = behavior.getKeystrokes(),
+            sensorDataCount = sensorCollector.getSensorData().size,
+            sensorData = sensorCollector.getSensorData(),
             submissionDurationSec = behavior.getSubmissionDurationSec(),
             onSuccess = {
                 Toast.makeText(this, getString(R.string.submission_saved, submissionNumber), Toast.LENGTH_SHORT).show()
 
-                if(submissionNumber < 5)
+                if(submissionNumber < 15)
                     goToNextSubmission(userIdStr, submissionNumber + 1)
                 else
                     goToFinalScreen()

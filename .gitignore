@@ -1,2 +1,3 @@
-/export_to_csv.py
-release_key_behavica.jks
+/release_key_behavica.jks
+/export_firestore.py
+/app/google-services.json

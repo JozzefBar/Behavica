@@ -7,7 +7,7 @@
     <string name="email_hint">Email</string>
     <string name="we_will_verify_email">Overíme váš email</string>
     <string name="start">Začať</string>
-    <string name="timing_note">*Poznámka: Od momentu kedy stlačíte Začať, aplikácia zaznamenáva ako dlho vám trvá vyplniť formulár a všetky časové údaje.*</string>
+    <string name="timing_note">*Poznámka: Po zadaní emailu a metadát bude vytvorený záznam o používateľovi v databáze. Prosím zadajte platný email ktorý používate. Vyplňte testy prirodzene. Vaše biometrické dáta budú zaznamenané.*</string>
 
     <!-- EmailCheckActivity Kotlin -->
     <string name="email_required">Email je povinný</string>
@@ -28,7 +28,7 @@
     <string name="email_default">Email: -</string>
     <string name="age_hint">Vek</string>
     <string name="gender_label">Pohlavie</string>
-    <string name="biometric_data_consent">Som si vedomý, že budú zbierané moje biometrické údaje</string>
+    <string name="biometric_data_consent">Rozumiem, že vyplním 15 odoslaní, každé zahŕňa 3 textové vstupy (prepisovanie slov), drag-and-drop a checkbox, a že budú zbierané moje biometrické údaje</string>
     <string name="save_continue">Uložiť a pokračovať</string>
 
     <!-- MetadataActivity Kotlin -->
@@ -47,30 +47,33 @@
     <string name="metadata_saved">Metadáta úspešne uložené!</string>
 
     <!-- SubmissionActivity XML -->
-    <string name="submission_default">Odoslanie 1 z 5</string>
+    <string name="submission_default">Odoslanie 1 z 15</string>
     <string name="drag_instruction">Potiahnite modrý kruh z A do B</string>
     <string name="rewrite_instruction">Prepíšte tento text:</string>
     <string name="type_text_hint">Napíšte text sem</string>
-    <string name="biometric_consent_submission">Súhlasím so zberom biometrických údajov</string>
+    <string name="biometric_consent_submission">Potvrdzujem zber mojich biometrických údajov</string>
     <string name="submit">Odoslať</string>
 
     <!-- SubmissionActivity Kotlin -->
-    <string name="submission_title">Odoslanie %d z 5</string>
+    <string name="submission_title">Odoslanie %d z 15</string>
     <string name="rewrite_text">Prepíšte tento text: \"%s\"</string>
+    <string name="all_words_completed">✓ Všetky slová dokončené</string>
+    <string name="text_rewrite_complete">Prepísanie textu dokončené</string>
     <string name="drag_completed">✓ Drag test dokončený!</string>
     <string name="drag_try_again">Skúste to znova - potiahnite kruh až k bodu B</string>
     <string name="please_complete_submission">Prosím dokončite odoslanie</string>
     <string name="please_complete_drag">Prosím dokončite drag test</string>
-    <string name="please_rewrite_correctly">Prosím prepíšte text správne</string>
+    <string name="please_rewrite_all_words">Prepíšte prosím všetky slová správne</string>
     <string name="submission_saved">Odoslanie %d uložené!</string>
 
     <!-- EndingActivity XML -->
     <string name="thank_you">Ďakujeme za účasť!!</string>
     <string name="data_uploaded">Vaše dáta boli úspešne nahrané do databázy!</string>
 
-    <!-- Common -->
+    <!-- AppStartHandler errors -->
     <string name="no_device_id">ID zariadenia nie je dostupné</string>
     <string name="error_checking_device">Chyba pri kontrole zariadenia: %s</string>
+    <string name="device_already_used">Toto zariadenie už bylo použité na odoslanie dát.</string>
 
     <!-- FirestoreRepository errors -->
     <string name="could_not_generate_userid">Nepodarilo sa vygenerovať jedinečné ID používateľa po 50 pokusoch.</string>

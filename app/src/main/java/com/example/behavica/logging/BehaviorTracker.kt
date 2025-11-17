@@ -35,9 +35,12 @@ class BehaviorTracker() {
     private var lastMoveX: Float = 0f
     private var lastMoveY: Float = 0f
 
-    // Text copy metrics
+    // Text rewrite metrics
     var textStartTime: Long = 0
     var textEditCount = 0
+    var currentWordIndex = 0
+    var wordsCompleted = 0
+    private val wordCompletionTimes = mutableListOf<Long>()
 
     // checkbox metrics
     var checkboxChecked = false
@@ -53,13 +56,18 @@ class BehaviorTracker() {
         }
     }
 
-    fun attachTextWatcher(editText: TextInputEditText) {
+    fun attachTextWatcher(editText: TextInputEditText, getCurrentWord: () -> String, isProgrammaticChange: () -> Boolean) {
         var lastLen = editText.text?.length ?: 0
 
         editText.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
+                if (isProgrammaticChange()) {
+                    lastLen = s?.length ?: 0
+                    return
+                }
+
                 val now = System.currentTimeMillis()
                 val curLen = s?.length ?: 0
 
@@ -74,6 +82,7 @@ class BehaviorTracker() {
                     keystrokes.add(
                         mapOf(
                             "field" to "rewriteTextInput",
+                            "word" to getCurrentWord(),
                             "type" to if (delta > 0) "insert" else "delete",
                             "count" to kotlin.math.abs(delta),
                             "t" to now
@@ -249,6 +258,14 @@ class BehaviorTracker() {
     }
 
     private fun recordTouchPoint(e: MotionEvent, targetName: String) {
+        /*
+        // Remove Action_Move for checkbox, submit button and textinput can be added as well
+        if (e.actionMasked == MotionEvent.ACTION_MOVE &&
+            (targetName == "checkBox" || targetName == "submitButton")) {
+            return
+        }
+         */
+
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
         dateFormat.timeZone = TimeZone.getTimeZone("Europe/Bratislava")
         val tsString = dateFormat.format(Date())
@@ -308,10 +325,19 @@ class BehaviorTracker() {
             null
         }
 
-    fun getSubmissionDurationSec(): Double {
-        return if (submissionStartTime > 0)
-            (System.currentTimeMillis() - submissionStartTime) / 1000.0
-        else -1.0
+    fun onWordCompleted() {
+        wordsCompleted++
+        wordCompletionTimes.add(System.currentTimeMillis())
+    }
+
+    fun resetForNextWord() {
+        currentWordIndex++
+    }
+
+    fun getAverageWordCompletionTime(): Double {
+        if (wordCompletionTimes.isEmpty() || textStartTime == 0L) return -1.0
+        val totalTime = (wordCompletionTimes.last() - textStartTime) / 1000.0
+        return totalTime / wordsCompleted
     }
 
     fun getDragDurationSec(): Double {
@@ -323,6 +349,12 @@ class BehaviorTracker() {
     fun getTextRewriteTime(): Double {
         return if (textStartTime > 0)
             (System.currentTimeMillis() - textStartTime) / 1000.0
+        else -1.0
+    }
+
+    fun getSubmissionDurationSec(): Double {
+        return if (submissionStartTime > 0)
+            (System.currentTimeMillis() - submissionStartTime) / 1000.0
         else -1.0
     }
 
