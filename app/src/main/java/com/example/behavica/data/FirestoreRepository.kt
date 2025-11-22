@@ -10,9 +10,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
-import java.text.SimpleDateFormat
 import kotlin.random.Random
-import java.util.*
 
 class FirestoreRepository(
     private val db: FirebaseFirestore,
@@ -107,10 +105,6 @@ class FirestoreRepository(
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ){
-        val dateFormat = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault())
-        dateFormat.timeZone = TimeZone.getTimeZone("Europe/Bratislava")
-        val currentTime = dateFormat.format(Date())
-
         // Device ID ensures one-time participation per device (similar to fraud prevention).
         val deviceId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: ""
 
@@ -126,7 +120,7 @@ class FirestoreRepository(
             "androidVersion" to Build.VERSION.RELEASE,
             "submissionCount" to 0,
             "createdAt" to FieldValue.serverTimestamp(),
-            "timestamp" to currentTime
+            "timestamp" to System.currentTimeMillis()
         )
 
         db.collection("Users3").document(userId)
@@ -161,12 +155,8 @@ class FirestoreRepository(
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ){
-        val dateFormat = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault())
-        dateFormat.timeZone = TimeZone.getTimeZone("Europe/Bratislava")
-        val currentTime = dateFormat.format(Date())
-
         val submission = hashMapOf(
-            "timestamp" to currentTime,
+            "timestamp" to System.currentTimeMillis(),
             "createdAt" to FieldValue.serverTimestamp(),
             "submissionDurationSec" to submissionDurationSec,
             "dragAttempts" to dragAttempts,
@@ -187,8 +177,7 @@ class FirestoreRepository(
                     "rawY" to tp.rawY,
                     "touchMajor" to tp.touchMajor,
                     "touchMinor" to tp.touchMinor,
-                    "timestampTime" to tp.timestampTime,
-                    "timestampEpochMs" to tp.timestampEpochMs,
+                    "timestamp" to tp.timestamp,
                     "action" to tp.action,
                     "pointerId" to tp.pointerId,
                     "target" to tp.target

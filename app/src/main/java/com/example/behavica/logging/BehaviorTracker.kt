@@ -10,10 +10,6 @@ import android.widget.CheckBox
 import android.widget.FrameLayout
 import com.example.behavica.model.TouchPoint
 import com.google.android.material.textfield.TextInputEditText
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
 import kotlin.math.pow
 import kotlin.math.sqrt
 
@@ -85,7 +81,7 @@ class BehaviorTracker() {
                             "word" to getCurrentWord(),
                             "type" to if (delta > 0) "insert" else "delete",
                             "count" to kotlin.math.abs(delta),
-                            "t" to now
+                            "timestamp" to now
                         )
                     )
                 }
@@ -259,11 +255,7 @@ class BehaviorTracker() {
 
     private fun recordTouchPoint(e: MotionEvent, targetName: String) {
 
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
-        dateFormat.timeZone = TimeZone.getTimeZone("Europe/Bratislava")
-        val tsString = dateFormat.format(Date())
-
-        val epochMs = System.currentTimeMillis()
+        val timestamp = System.currentTimeMillis()
         val actionStr = TouchPoint.actionToString(e.actionMasked)
 
         val idx = when (e.actionMasked) {
@@ -290,7 +282,7 @@ class BehaviorTracker() {
 
         val touchMajor = safe { e.getTouchMajor(idx) } ?: e.touchMajor
         val touchMinor = safe { e.getTouchMinor(idx) } ?: e.touchMinor
-        val pointerId = (safe { e.getPointerId(idx) } ?: -1).toString()
+        val pointerId = (safe { e.getPointerId(idx) } ?: -1)
 
         touchPoints.add(
             TouchPoint(
@@ -298,9 +290,8 @@ class BehaviorTracker() {
                 size = size,
                 x = xLocal,
                 y = yLocal,
-                timestampTime = tsString,
                 target = targetName,
-                timestampEpochMs = epochMs,
+                timestamp = timestamp,
                 action = actionStr,
                 pointerId = pointerId,
                 rawX = rawX,
