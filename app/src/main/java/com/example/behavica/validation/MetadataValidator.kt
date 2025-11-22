@@ -10,6 +10,7 @@ import com.google.android.material.textfield.TextInputLayout
 class MetadataValidator(
     private val userAgeLayout: TextInputLayout,
     private val genderSpinner: Spinner,
+    private val dominantHandSpinner: Spinner,
     private val checkBox: CheckBox
 ) {
     data class ValidationResult(
@@ -36,6 +37,12 @@ class MetadataValidator(
         if (genderSpinner.selectedItemPosition == 0) {
             Toast.makeText(context, R.string.please_select_gender, Toast.LENGTH_LONG).show()
             return ValidationResult(false, context.getString(R.string.please_select_gender))
+        }
+
+        // Validate dominant hand
+        if (dominantHandSpinner.selectedItemPosition == 0) {
+            Toast.makeText(context, R.string.please_select_dominant_hand, Toast.LENGTH_LONG).show()
+            return ValidationResult(false, context.getString(R.string.please_select_dominant_hand))
         }
 
         // Validate checkbox

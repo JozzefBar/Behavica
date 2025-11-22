@@ -89,7 +89,25 @@
                     android:id="@+id/genderSpinner"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
-                    android:layout_marginBottom="24dp"
+                    android:layout_marginBottom="8dp"
+                    android:background="@drawable/spinner_background"
+                    android:textColor="@color/textColorPrimary"/>
+
+            <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/dominant_hand_label"
+                    android:textStyle="bold"
+                    android:textColor="@color/textColorPrimary"
+                    android:textSize="16sp"
+                    android:layout_marginBottom="4dp"
+                    android:layout_marginTop="8dp"/>
+
+            <Spinner
+                    android:id="@+id/dominantHandSpinner"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginBottom="14dp"
                     android:background="@drawable/spinner_background"
                     android:textColor="@color/textColorPrimary"/>
 

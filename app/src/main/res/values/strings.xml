@@ -5,14 +5,15 @@
     <string name="enter_email_to_begin">Enter your email to begin</string>
     <string name="email_hint">Email</string>
     <string name="we_will_verify_email">We will verify your email</string>
-    <string name="start">Start</string>
-    <string name="timing_note">*Note: After entering your email and metadata, a user record will be created in the database. Please provide a valid email that you use. Complete the tests naturally. Your biometric data will be recorded.*</string>
+    <string name="start_data_logging">Data Logging</string>
+    <string name="authenticate">Authenticate</string>
+    <string name="timing_note">*Note: <b>Please provide a valid email that you use and fill in the metadata truthfully.</b> After entering your email and metadata, a user record will be created in the database. Complete the tests naturally. Your biometric data will be recorded after each successful data submission.*</string>
 
     <!-- EmailCheckActivity Kotlin -->
     <string name="email_required">Email is required</string>
     <string name="invalid_email_format">Invalid email format</string>
     <string name="checking">Checking…</string>
-    <string name="email_available">✓ Email is available</string>
+    <string name="email_available">✓ Email is avaiable</string>
     <string name="email_already_registered">This email is already registered. Please use a different email.</string>
     <string name="error_checking_email">Error checking email: %s</string>
     <string name="please_enter_valid_email">Please enter a valid email</string>
@@ -27,6 +28,7 @@
     <string name="email_default">Email: -</string>
     <string name="age_hint">Age</string>
     <string name="gender_label">Gender</string>
+    <string name="dominant_hand_label">Dominant Hand</string>
     <string name="biometric_data_consent">I understand that I will complete 15 submissions, each involving 3 text inputs (rewriting words), drag-and-drop, and a checkbox, and that my biometric data will be collected</string>
     <string name="save_continue">Save &amp; Continue</string>
 
@@ -37,11 +39,16 @@
     <string name="male">Male</string>
     <string name="female">Female</string>
     <string name="other">Other</string>
+    <string name="select_dominant_hand">Select Dominant Hand</string>
+    <string name="right_handed">Right-handed</string>
+    <string name="left_handed">Left-handed</string>
+    <string name="ambidextrous">Ambidextrous</string>
     <string name="saving">Saving…</string>
     <string name="please_complete_form">Please complete the form</string>
     <string name="please_enter_age">Please enter your age</string>
     <string name="age_must_be_between">Age must be between 10 and 100</string>
     <string name="please_select_gender">Please select your gender</string>
+    <string name="please_select_dominant_hand">Please select your dominant hand</string>
     <string name="must_agree_data_collection">You must agree to data collection</string>
     <string name="metadata_saved">Metadata saved successfully!</string>
 
@@ -55,6 +62,7 @@
 
     <!-- SubmissionActivity Kotlin -->
     <string name="submission_title">Submission %d of 15</string>
+    <string name="authentication_title">Authentication Mode</string>
     <string name="rewrite_text">Rewrite this text: \"%s\"</string>
     <string name="all_words_completed">✓ All words completed</string>
     <string name="text_rewrite_complete">Text rewrite complete</string>

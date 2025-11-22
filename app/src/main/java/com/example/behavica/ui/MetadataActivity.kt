@@ -22,6 +22,7 @@ class MetadataActivity : AppCompatActivity() {
     private lateinit var userAgeLayout: TextInputLayout
     private lateinit var userAgeInput: TextInputEditText
     private lateinit var genderSpinner: Spinner
+    private lateinit var dominantHandSpinner: Spinner
     private lateinit var checkbox: CheckBox
     private lateinit var saveButton: Button
 
@@ -57,10 +58,11 @@ class MetadataActivity : AppCompatActivity() {
 
         // helpers init
         repo = FirestoreRepository(db, this)
-        validator = MetadataValidator(userAgeLayout, genderSpinner, checkbox)
+        validator = MetadataValidator(userAgeLayout, genderSpinner, dominantHandSpinner, checkbox)
 
         // Setups
         setupGenderSpinner()
+        setupDominantHandSpinner()
         setupSaveButton()
 
         // Ignore Back button
@@ -78,6 +80,7 @@ class MetadataActivity : AppCompatActivity() {
         userAgeLayout = findViewById(R.id.userAgeLayout)
         userAgeInput = findViewById(R.id.userAgeInput)
         genderSpinner = findViewById(R.id.genderSpinner)
+        dominantHandSpinner = findViewById(R.id.dominantHandSpinner)
         checkbox = findViewById(R.id.checkBox)
         saveButton = findViewById(R.id.saveButton)
     }
@@ -97,6 +100,18 @@ class MetadataActivity : AppCompatActivity() {
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, genderOptions)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         genderSpinner.adapter = adapter
+    }
+
+    private fun setupDominantHandSpinner() {
+        val handOptions = arrayOf(
+            getString(R.string.select_dominant_hand),
+            getString(R.string.right_handed),
+            getString(R.string.left_handed),
+            getString(R.string.ambidextrous)
+        )
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, handOptions)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        dominantHandSpinner.adapter = adapter
     }
 
     private fun setupSaveButton() {
@@ -126,12 +141,14 @@ class MetadataActivity : AppCompatActivity() {
         val email = userEmail.orEmpty().trim().lowercase()
         val userAge = userAgeInput.text.toString().trim().toInt()
         val userGender = genderSpinner.selectedItem.toString()
+        val dominantHand = dominantHandSpinner.selectedItem.toString()
 
         repo.createUserMetadata(
             userId = userIdStr,
             email = email,
             userAge = userAge,
             userGender = userGender,
+            dominantHand = dominantHand,
             onSuccess = {
                 Toast.makeText(this, R.string.metadata_saved, Toast.LENGTH_SHORT).show()
                 goToSubmission(userIdStr)

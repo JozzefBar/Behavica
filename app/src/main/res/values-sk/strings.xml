@@ -6,8 +6,9 @@
     <string name="enter_email_to_begin">Zadajte váš email pre začatie</string>
     <string name="email_hint">Email</string>
     <string name="we_will_verify_email">Overíme váš email</string>
-    <string name="start">Začať</string>
-    <string name="timing_note">*Poznámka: Po zadaní emailu a metadát bude vytvorený záznam o používateľovi v databáze. Prosím zadajte platný email ktorý používate. Vyplňte testy prirodzene. Vaše biometrické dáta budú zaznamenané.*</string>
+    <string name="start_data_logging">Zber dát</string>
+    <string name="authenticate">Autentifikácia</string>
+    <string name="timing_note">*Poznámka: <b>Prosím zadajte platný email, ktorý používate a vyplňte metadáta pravdivo.</b> Po zadaní emailu a metadát bude vytvorený záznam o používateľovi v databáze. Vyplňte testy prirodzene. Vaše biometrické dáta budú zaznamenané po každom úspešnom odoslaní dát.*</string>
 
     <!-- EmailCheckActivity Kotlin -->
     <string name="email_required">Email je povinný</string>
@@ -28,6 +29,7 @@
     <string name="email_default">Email: -</string>
     <string name="age_hint">Vek</string>
     <string name="gender_label">Pohlavie</string>
+    <string name="dominant_hand_label">Dominantná ruka</string>
     <string name="biometric_data_consent">Rozumiem, že vyplním 15 odoslaní, každé zahŕňa 3 textové vstupy (prepisovanie slov), drag-and-drop a checkbox, a že budú zbierané moje biometrické údaje</string>
     <string name="save_continue">Uložiť a pokračovať</string>
 
@@ -38,11 +40,16 @@
     <string name="male">Muž</string>
     <string name="female">Žena</string>
     <string name="other">Iné</string>
+    <string name="select_dominant_hand">Vyberte dominantnú ruku</string>
+    <string name="right_handed">Pravák</string>
+    <string name="left_handed">Ľavák</string>
+    <string name="ambidextrous">Obidve ruky</string>
     <string name="saving">Ukladám…</string>
     <string name="please_complete_form">Prosím vyplňte formulár</string>
     <string name="please_enter_age">Zadajte prosím váš vek</string>
     <string name="age_must_be_between">Vek musí byť medzi 10 a 100</string>
     <string name="please_select_gender">Vyberte prosím pohlavie</string>
+    <string name="please_select_dominant_hand">Vyberte prosím dominantnú ruku</string>
     <string name="must_agree_data_collection">Musíte súhlasiť so zberom dát</string>
     <string name="metadata_saved">Metadáta úspešne uložené!</string>
 
@@ -56,6 +63,7 @@
 
     <!-- SubmissionActivity Kotlin -->
     <string name="submission_title">Odoslanie %d z 15</string>
+    <string name="authentication_title">Režim autentifikácie</string>
     <string name="rewrite_text">Prepíšte tento text: \"%s\"</string>
     <string name="all_words_completed">✓ Všetky slová dokončené</string>
     <string name="text_rewrite_complete">Prepísanie textu dokončené</string>

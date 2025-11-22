@@ -52,7 +52,10 @@ class SubmissionActivity : AppCompatActivity() {
 
     private val targetWords = listOf("internet", "wifi", "laptop")
     private var currentWordIndex = 0
-    private var isProgrammaticChange = false
+    private var isProgrammaticChange = false    // change when word is correctly rewrote
+
+    private var isAuthenticationMode = false
+    private var userEmail: String? = null
 
     private val disableActionModeCallback = object : ActionMode.Callback {
         override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean = false
@@ -76,8 +79,17 @@ class SubmissionActivity : AppCompatActivity() {
         userId = intent.getStringExtra("userId")
         submissionNumber = intent.getIntExtra("submissionNumber", 1)
 
+        userEmail = intent.getStringExtra("userEmail")
+        isAuthenticationMode = intent.getBooleanExtra("isAuthentication", false)
+
         initViews()
-        submissionTitle.text = getString(R.string.submission_title, submissionNumber)
+
+        if (isAuthenticationMode) {
+            submissionTitle.text = getString(R.string.authentication_title)
+        } else {
+            submissionTitle.text = getString(R.string.submission_title, submissionNumber)
+        }
+
         targetTextView.text = getString(R.string.rewrite_text, targetWords[currentWordIndex])
 
         behavior = BehaviorTracker()
@@ -136,6 +148,10 @@ class SubmissionActivity : AppCompatActivity() {
     }
 
     private fun setupTextInput(){
+        /*
+        behavior.attachTouchListener(rewriteTextInput, "rewriteTextKeyboard")
+        */
+
         behavior.attachTextWatcher(
             rewriteTextInput,
             getCurrentWord = {
@@ -240,6 +256,20 @@ class SubmissionActivity : AppCompatActivity() {
     }
 
     private fun submitToFirebase(){
+        if (isAuthenticationMode) {
+            // Zatiaľ len zobraz message a choď na ending screen
+            Toast.makeText(
+                this,
+                "Autentifikácia done",
+                Toast.LENGTH_LONG
+            ).show()
+
+            // TODO: Tu bude neskôr ML predikcia
+
+            goToFinalScreen()
+            return
+        }
+
         val userIdStr = userId.orEmpty()
 
         repo.saveSubmission(

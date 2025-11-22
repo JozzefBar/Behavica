@@ -258,13 +258,6 @@ class BehaviorTracker() {
     }
 
     private fun recordTouchPoint(e: MotionEvent, targetName: String) {
-        /*
-        // Remove Action_Move for checkbox, submit button and textinput can be added as well
-        if (e.actionMasked == MotionEvent.ACTION_MOVE &&
-            (targetName == "checkBox" || targetName == "submitButton")) {
-            return
-        }
-         */
 
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
         dateFormat.timeZone = TimeZone.getTimeZone("Europe/Bratislava")

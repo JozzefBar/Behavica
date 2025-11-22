@@ -103,6 +103,7 @@ class FirestoreRepository(
         email: String,
         userAge: Int,
         userGender: String,
+        dominantHand: String,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ){
@@ -118,6 +119,7 @@ class FirestoreRepository(
             "email" to email,
             "age" to userAge,
             "gender" to userGender,
+            "dominantHand" to dominantHand,
             "deviceId" to deviceId,
             "deviceManufacturer" to Build.MANUFACTURER,
             "deviceModel" to Build.MODEL,

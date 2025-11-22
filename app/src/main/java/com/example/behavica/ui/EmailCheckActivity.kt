@@ -27,7 +27,8 @@ class EmailCheckActivity : AppCompatActivity() {
 
     private lateinit var emailLayout: TextInputLayout
     private lateinit var emailInput: TextInputEditText
-    private lateinit var startButton: Button
+    private lateinit var startDataLoggingButton: Button
+    private lateinit var authenticateButton: Button
     private lateinit var progressBar: ProgressBar
     private lateinit var statusText: TextView
 
@@ -73,8 +74,9 @@ class EmailCheckActivity : AppCompatActivity() {
 
     private fun showDeviceBlockedError(message: String) {
         emailInput.isEnabled = false
-        startButton.isEnabled = false
-        showStatus(message, true)
+        startDataLoggingButton.isEnabled = false
+        authenticateButton.isEnabled = true
+        showStatus(message, false)
     }
 
     private fun initializeEmailCheckScreen() {
@@ -90,16 +92,18 @@ class EmailCheckActivity : AppCompatActivity() {
         initViews()
         ensureAnonAuth()
         setupEmailWatcher()
-        setupStartButton()
+        setupButtons()
     }
 
     private fun initViews() {
         emailLayout = findViewById(R.id.emailLayout)
         emailInput = findViewById(R.id.emailInput)
-        startButton = findViewById(R.id.startButton)
+        startDataLoggingButton = findViewById(R.id.startDataLoggingButton)
+        authenticateButton = findViewById(R.id.authenticateButton)
         progressBar = findViewById(R.id.checkProgress)
         statusText = findViewById(R.id.statusText)
-        startButton.isEnabled = false
+        startDataLoggingButton.isEnabled = false
+        authenticateButton.isEnabled = false
     }
 
     private fun ensureAnonAuth() {
@@ -131,7 +135,8 @@ class EmailCheckActivity : AppCompatActivity() {
                 statusText.visibility = View.GONE
                 emailChecked = false
                 emailAvailable = false
-                startButton.isEnabled = false
+                startDataLoggingButton.isEnabled = false
+                authenticateButton.isEnabled = false
 
                 // Cancel any pending check
                 pendingCheck?.let { handler.removeCallbacks(it) }
@@ -149,7 +154,8 @@ class EmailCheckActivity : AppCompatActivity() {
 
     private fun checkEmailInDatabase(email: String) {
         progressBar.visibility = View.VISIBLE
-        startButton.isEnabled = false
+        startDataLoggingButton.isEnabled = false
+        authenticateButton.isEnabled = false
         statusText.visibility = View.GONE
 
         repo.checkEmailExists(
@@ -162,26 +168,30 @@ class EmailCheckActivity : AppCompatActivity() {
                 if (exists) {
                     emailLayout.helperText = null
                     showStatus(message, true)
-                    startButton.isEnabled = false
+                    startDataLoggingButton.isEnabled = false
+                    authenticateButton.isEnabled = false
                 } else {
-                    emailLayout.helperText = getString(R.string.email_available)
+                    emailLayout.helperText = null
                     showStatus(message, false)
-                    startButton.isEnabled = true
+                    startDataLoggingButton.isEnabled = true
+                    authenticateButton.isEnabled = false
                 }
             },
             onError = { error ->
                 progressBar.visibility = View.GONE
                 emailLayout.helperText = null
                 showStatus(getString(R.string.error_checking_email, error), true)
-                startButton.isEnabled = false
+                startDataLoggingButton.isEnabled = false
+                authenticateButton.isEnabled = false
                 emailChecked = false
                 emailAvailable = false
             }
         )
     }
 
-    private fun setupStartButton() {
-        startButton.setOnClickListener {
+    private fun setupButtons() {
+        // Data Logging Button
+        startDataLoggingButton.setOnClickListener {
             val email = emailInput.text.toString().trim().lowercase()
 
             // Cancel any pending debounced check
@@ -201,8 +211,8 @@ class EmailCheckActivity : AppCompatActivity() {
 
             // Otherwise, check email one more time before proceeding
             progressBar.visibility = View.VISIBLE
-            startButton.isEnabled = false
-            startButton.text = getString(R.string.checking)
+            startDataLoggingButton.isEnabled = false
+            startDataLoggingButton.text = getString(R.string.checking)
 
             repo.checkEmailExists(
                 email = email,
@@ -210,8 +220,8 @@ class EmailCheckActivity : AppCompatActivity() {
                     if (exists) {
                         progressBar.visibility = View.GONE
                         showStatus(message, true)
-                        startButton.isEnabled = true
-                        startButton.text = getString(R.string.start)
+                        startDataLoggingButton.isEnabled = true
+                        startDataLoggingButton.text = getString(R.string.start_data_logging)
                     } else {
                         generateUserIdAndProceed(email)
                     }
@@ -219,16 +229,21 @@ class EmailCheckActivity : AppCompatActivity() {
                 onError = { error ->
                     progressBar.visibility = View.GONE
                     showStatus(getString(R.string.error_generic, error), true)
-                    startButton.isEnabled = true
-                    startButton.text = getString(R.string.start)
+                    startDataLoggingButton.isEnabled = true
+                    startDataLoggingButton.text = getString(R.string.start_data_logging)
                 }
             )
+        }
+
+        // Authentication Button
+        authenticateButton.setOnClickListener {
+            goToAuthenticationSubmission()
         }
     }
 
     private fun generateUserIdAndProceed(email: String) {
-        startButton.text = getString(R.string.generating_id)
-        startButton.isEnabled = false
+        startDataLoggingButton.text = getString(R.string.generating_id)
+        startDataLoggingButton.isEnabled = false
         progressBar.visibility = View.VISIBLE
 
         repo.generateUniqueUserIdOnly(
@@ -239,8 +254,8 @@ class EmailCheckActivity : AppCompatActivity() {
             onError = { error ->
                 progressBar.visibility = View.GONE
                 showStatus(getString(R.string.error_generic, error), true)
-                startButton.isEnabled = true
-                startButton.text = getString(R.string.start)
+                startDataLoggingButton.isEnabled = true
+                startDataLoggingButton.text = getString(R.string.start_data_logging)
             }
         )
     }
@@ -258,6 +273,16 @@ class EmailCheckActivity : AppCompatActivity() {
         val intent = Intent(this, MetadataActivity::class.java).apply {
             putExtra("userId", userId)
             putExtra("email", email)
+        }
+        startActivity(intent)
+        finish()
+    }
+
+    private fun goToAuthenticationSubmission() {
+        val intent = Intent(this, SubmissionActivity::class.java).apply {
+            putExtra("userEmail", "")
+            putExtra("submissionNumber", 1)
+            putExtra("isAuthentication", true)
         }
         startActivity(intent)
         finish()
