@@ -148,10 +148,6 @@ class SubmissionActivity : AppCompatActivity() {
     }
 
     private fun setupTextInput(){
-        /*
-        behavior.attachTouchListener(rewriteTextInput, "rewriteTextKeyboard")
-        */
-
         behavior.attachTextWatcher(
             rewriteTextInput,
             getCurrentWord = {

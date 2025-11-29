@@ -8,6 +8,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.widget.CheckBox
 import android.widget.FrameLayout
+import com.example.behavica.model.KeystrokeEvent
 import com.example.behavica.model.TouchPoint
 import com.google.android.material.textfield.TextInputEditText
 import kotlin.math.pow
@@ -16,7 +17,7 @@ import kotlin.math.sqrt
 class BehaviorTracker() {
 
     private val touchPoints: MutableList<TouchPoint> = mutableListOf()
-    private val keystrokes: MutableList<Map<String, Any>> = mutableListOf()
+    private val keystrokes: MutableList<KeystrokeEvent> = mutableListOf()
 
     // Submission timing
     var submissionStartTime: Long = 0
@@ -54,6 +55,7 @@ class BehaviorTracker() {
 
     fun attachTextWatcher(editText: TextInputEditText, getCurrentWord: () -> String, isProgrammaticChange: () -> Boolean) {
         var lastLen = editText.text?.length ?: 0
+        var lastText = editText.text?.toString() ?: ""
 
         editText.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -61,31 +63,45 @@ class BehaviorTracker() {
             override fun afterTextChanged(s: Editable?) {
                 if (isProgrammaticChange()) {
                     lastLen = s?.length ?: 0
+                    lastText = s?.toString() ?: ""
                     return
                 }
 
                 val now = System.currentTimeMillis()
                 val curLen = s?.length ?: 0
+                val currentText = s?.toString() ?: ""
 
                 if (textStartTime == 0L && curLen > 0)
                     textStartTime = now
 
-                if (curLen != lastLen)
+                if (curLen != lastLen) {
                     textEditCount++
 
-                val delta = curLen - lastLen
-                if (delta != 0) {
-                    keystrokes.add(
-                        mapOf(
-                            "field" to "rewriteTextInput",
-                            "word" to getCurrentWord(),
-                            "type" to if (delta > 0) "insert" else "delete",
-                            "count" to kotlin.math.abs(delta),
-                            "timestamp" to now
-                        )
+                    val delta = curLen - lastLen
+                    val cursorPosition = editText.selectionStart
+
+                    val keyChar = when {
+                        delta > 0 && cursorPosition > 0 -> currentText.getOrNull(cursorPosition - 1) ?: ' '
+                        delta < 0 && cursorPosition < lastText.length -> lastText.getOrNull(cursorPosition) ?: ' '
+                        else -> ' '
+                    }
+
+                    val keystroke = KeystrokeEvent(
+                        field = "rewriteTextInput",
+                        word = getCurrentWord(),
+                        type = if (delta > 0) "insert" else "delete",
+                        count = kotlin.math.abs(delta),
+                        timestamp = now,
+                        keyChar = keyChar,
+                        cursorPosition = cursorPosition,
+                        inputContent = currentText
                     )
+
+                    keystrokes.add(keystroke)
                 }
+
                 lastLen = curLen
+                lastText = currentText
             }
         })
     }
@@ -344,5 +360,5 @@ class BehaviorTracker() {
 
     fun getTouchPoints(): List<TouchPoint> = touchPoints
 
-    fun getKeystrokes(): List<Map<String, Any>> = keystrokes
+    fun getKeystrokes(): List<Map<String, Any>> = keystrokes.map { it.toMap() }
 }
