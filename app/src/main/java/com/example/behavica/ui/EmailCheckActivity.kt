@@ -21,16 +21,19 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import android.os.Handler
 import android.os.Looper
+import androidx.core.view.isVisible
 import com.example.behavica.data.AppStartHandler
 
 class EmailCheckActivity : AppCompatActivity() {
 
+    private lateinit var startText: TextView
     private lateinit var emailLayout: TextInputLayout
     private lateinit var emailInput: TextInputEditText
     private lateinit var startDataLoggingButton: Button
     private lateinit var authenticateButton: Button
     private lateinit var progressBar: ProgressBar
     private lateinit var statusText: TextView
+    private lateinit var infoText: TextView
 
     private val repo by lazy { FirestoreRepository(FirebaseFirestore.getInstance(), this) }
     private val auth by lazy { FirebaseAuth.getInstance() }
@@ -72,13 +75,6 @@ class EmailCheckActivity : AppCompatActivity() {
         )
     }
 
-    private fun showDeviceBlockedError(message: String) {
-        emailInput.isEnabled = false
-        startDataLoggingButton.isEnabled = false
-        authenticateButton.isEnabled = true
-        showStatus(message, false)
-    }
-
     private fun initializeEmailCheckScreen() {
         enableEdgeToEdge()
         setContentView(R.layout.email_check_activity)
@@ -96,14 +92,27 @@ class EmailCheckActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
+        startText = findViewById(R.id.startText)
         emailLayout = findViewById(R.id.emailLayout)
         emailInput = findViewById(R.id.emailInput)
         startDataLoggingButton = findViewById(R.id.startDataLoggingButton)
         authenticateButton = findViewById(R.id.authenticateButton)
         progressBar = findViewById(R.id.checkProgress)
         statusText = findViewById(R.id.statusText)
+        infoText = findViewById(R.id.infoText)
         startDataLoggingButton.isEnabled = false
         authenticateButton.isEnabled = false
+    }
+
+    private fun showDeviceBlockedError(message: String) {
+        startText.isVisible = false
+        emailLayout.isVisible = false
+        emailInput.isEnabled = false
+        startDataLoggingButton.isEnabled = false
+        startDataLoggingButton.isVisible = false
+        authenticateButton.isEnabled = true
+        infoText.isVisible = false
+        showStatus(message, false)
     }
 
     private fun ensureAnonAuth() {

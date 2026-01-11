@@ -105,12 +105,15 @@ class FirestoreRepository(
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ){
+        val firebaseUid = auth.currentUser?.uid ?: ""
+
         // Device ID ensures one-time participation per device (similar to fraud prevention).
         val deviceId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: ""
 
         val metadata = hashMapOf(
             "userId" to userId.toInt(),
             "email" to email,
+            "createdBy" to firebaseUid,
             "age" to userAge,
             "gender" to userGender,
             "dominantHand" to dominantHand,
