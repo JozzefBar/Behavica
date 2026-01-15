@@ -14,7 +14,7 @@
     <string name="invalid_email_format">Invalid email format</string>
     <string name="checking">Checking…</string>
     <string name="email_available">✓ Email is avaiable</string>
-    <string name="email_already_registered">This email is already registered. Please use a different email.</string>
+    <string name="email_already_registered">This email is already registered.\n\nYou can authenticate using the \'Authenticate\' button if you have already registered.</string>
     <string name="error_checking_email">Error checking email: %s</string>
     <string name="please_enter_valid_email">Please enter a valid email</string>
     <string name="auth_failed">Auth failed: %s</string>

@@ -178,7 +178,7 @@ class EmailCheckActivity : AppCompatActivity() {
                     emailLayout.helperText = null
                     showStatus(message, true)
                     startDataLoggingButton.isEnabled = false
-                    authenticateButton.isEnabled = false
+                    authenticateButton.isEnabled = true
                 } else {
                     emailLayout.helperText = null
                     showStatus(message, false)

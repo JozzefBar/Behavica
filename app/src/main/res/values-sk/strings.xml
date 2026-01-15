@@ -15,7 +15,7 @@
     <string name="invalid_email_format">Neplatný formát emailu</string>
     <string name="checking">Kontrolujem…</string>
     <string name="email_available">✓ Email je dostupný</string>
-    <string name="email_already_registered">Tento email je už zaregistrovaný. Použite prosím iný email.</string>
+    <string name="email_already_registered">Tento email je už registrovaný.\n\nMôžete sa autentifikovať tlačidlom \'Authenticate\' ak ste sa už registrovali.</string>
     <string name="error_checking_email">Chyba pri kontrole emailu: %s</string>
     <string name="please_enter_valid_email">Zadajte prosím platný email</string>
     <string name="auth_failed">Autentifikácia zlyhala: %s</string>
