@@ -33,6 +33,7 @@ class SensorDataCollector(private val context: Context) : SensorEventListener {
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
 
+        //50 hz +-
         accelerometer?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
         }
@@ -72,6 +73,7 @@ class SensorDataCollector(private val context: Context) : SensorEventListener {
         }
 
         val currentTime = System.currentTimeMillis()
+        // 1000ms / 100ms = 10 samples per second = 10 Hz approx.
         if (currentTime - lastSampleTime >= sampleIntervalMs && hasNewAccelData && hasNewGyroData) {
             sensorReadings.add(
                 SensorReading(

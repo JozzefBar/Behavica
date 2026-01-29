@@ -23,7 +23,8 @@ class BehaviorTracker() {
     var submissionStartTime: Long = 0
 
     //Drag test metrics
-    var dragStartTime: Long = 0
+    var dragFirstStartTime: Long = 0 //time of the first attempt
+    var dragStartTime: Long = 0 //current attempt time
     var dragEndTime: Long = 0
     var dragCompleted: Boolean = false
     var dragAttempts: Int = 0
@@ -154,6 +155,7 @@ class BehaviorTracker() {
                     dX = v.x - event.rawX
                     dY = v.y - event.rawY
 
+                    //transparency
                     v.alpha = 0.8f
                 }
 
@@ -203,6 +205,9 @@ class BehaviorTracker() {
         when (action) {
             MotionEvent.ACTION_DOWN -> {
                 dragStartTime = System.currentTimeMillis()
+                if (dragFirstStartTime == 0L) {
+                    dragFirstStartTime = dragStartTime
+                }
                 dragAttempts++
                 dragCompleted = false
                 dragDistance = 0f
@@ -260,8 +265,8 @@ class BehaviorTracker() {
 
                 dragDistance = distance
 
-                // Consider completed if within a reasonable threshold - 70% of the circle's width
-                val threshold = endCircle.width * 0.7f
+                // Consider completed if within a reasonable threshold - 50% of the circle's width
+                val threshold = endCircle.width * 0.5f
                 dragCompleted = distance < threshold
 
                 onDragStatusChanged?.invoke(dragCompleted)
@@ -328,6 +333,7 @@ class BehaviorTracker() {
     fun onWordCompleted() {
         wordsCompleted++
         wordCompletionTimes.add(System.currentTimeMillis())
+        android.util.Log.d("BEHAVIOR_TRACKER", "onWordCompleted() called! wordsCompleted = $wordsCompleted")
     }
 
     fun resetForNextWord() {
@@ -337,19 +343,19 @@ class BehaviorTracker() {
     fun getAverageWordCompletionTime(): Double {
         if (wordCompletionTimes.isEmpty() || textStartTime == 0L) return -1.0
         val totalTime = (wordCompletionTimes.last() - textStartTime) / 1000.0
-        return totalTime / wordsCompleted
+        val avg = totalTime / wordsCompleted
+        return avg
     }
 
     fun getDragDurationSec(): Double {
-        return if (dragStartTime > 0 && dragEndTime > dragStartTime)
-            (dragEndTime - dragStartTime) / 1000.0
+        return if (dragFirstStartTime > 0 && dragEndTime > dragFirstStartTime)
+            (dragEndTime - dragFirstStartTime) / 1000.0
         else -1.0
     }
 
     fun getTextRewriteTime(): Double {
-        return if (textStartTime > 0)
-            (System.currentTimeMillis() - textStartTime) / 1000.0
-        else -1.0
+        if (wordCompletionTimes.isEmpty() || textStartTime == 0L) return -1.0
+        return (wordCompletionTimes.last() - textStartTime) / 1000.0
     }
 
     fun getSubmissionDurationSec(): Double {
