@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.provider.Settings
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Source
 
 class AppStartHandler (
     private val context: Context,
@@ -43,7 +44,7 @@ class AppStartHandler (
         db.collection("Users3")
             .whereEqualTo("deviceId", deviceId)
             .limit(1)
-            .get()
+            .get(Source.SERVER)
             .addOnSuccessListener { query ->
                 if (query.isEmpty) {
                     onResult(StartDestination.EmailCheck)

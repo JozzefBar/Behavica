@@ -20,6 +20,8 @@
     <string name="auth_failed">Auth failed: %s</string>
     <string name="generating_id">Generating ID…</string>
     <string name="error_generic">Error: %s</string>
+    <string name="network_unavailable">No internet connection. Please check your network and try again.</string>
+    <string name="network_timeout">Connection timed out. Please check your internet connection.</string>
 
     <!-- MetadataActivity XML -->
     <string name="welcome_to_behavica">Welcome to Behavica</string>

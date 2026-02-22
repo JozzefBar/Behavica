@@ -21,6 +21,8 @@
     <string name="auth_failed">Autentifikácia zlyhala: %s</string>
     <string name="generating_id">Generujem ID…</string>
     <string name="error_generic">Chyba: %s</string>
+    <string name="network_unavailable">Žiadne internetové pripojenie. Skontrolujte sieť a skúste to znova.</string>
+    <string name="network_timeout">Časový limit pripojenia vypršal. Skontrolujte si internetové pripojenie.</string>
 
     <!-- MetadataActivity XML -->
     <string name="welcome_to_behavica">Vitajte v Behavica</string>

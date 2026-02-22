@@ -10,6 +10,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.firestore.Source
 import kotlin.random.Random
 
 class FirestoreRepository(
@@ -38,7 +39,7 @@ class FirestoreRepository(
         onResult: (exists: Boolean, message: String) -> Unit,
         onError: (String) -> Unit
     ){
-        db.collection("Users3").whereEqualTo("email", email.lowercase()).limit(1).get()
+        db.collection("Users3").whereEqualTo("email", email.lowercase()).limit(1).get(Source.SERVER)
             .addOnSuccessListener { query ->
                 if (query.isEmpty) {
                     onResult(false, context.getString(R.string.email_available))
@@ -47,7 +48,17 @@ class FirestoreRepository(
                 }
             }
             .addOnFailureListener { e ->
-                onError(context.getString(R.string.error_checking_email, e.message))
+                val errorMessage = when {
+                    e.message?.contains("UNAVAILABLE") == true ->
+                        context.getString(R.string.network_unavailable)
+                    e.message?.contains("DEADLINE_EXCEEDED") == true ->
+                        context.getString(R.string.network_timeout)
+                    e.message?.contains("Failed to get documents from server") == true ->
+                        context.getString(R.string.network_unavailable)
+                    else ->
+                        context.getString(R.string.error_checking_email, e.message)
+                }
+                onError(errorMessage)
             }
     }
 
@@ -86,12 +97,20 @@ class FirestoreRepository(
         db.collection("Users3")
             .whereEqualTo("userId", userId.toInt())
             .limit(1)
-            .get()
+            .get(Source.SERVER)
             .addOnSuccessListener { query ->
                 onResult(!query.isEmpty)
             }
             .addOnFailureListener { e ->
-                onError(context.getString(R.string.failed_to_check_userid, e.localizedMessage))
+                val errorMessage = when {
+                    e.message?.contains("UNAVAILABLE") == true ->
+                        context.getString(R.string.network_unavailable)
+                    e.message?.contains("DEADLINE_EXCEEDED") == true ->
+                        context.getString(R.string.network_timeout)
+                    else ->
+                        context.getString(R.string.failed_to_check_userid, e.localizedMessage)
+                }
+                onError(errorMessage)
             }
     }
 
