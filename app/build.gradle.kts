@@ -49,4 +49,6 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.2.0"))
     implementation("com.google.firebase:firebase-auth-ktx:22.3.1")
     implementation("com.google.firebase:firebase-firestore-ktx:25.0.0")
+
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }

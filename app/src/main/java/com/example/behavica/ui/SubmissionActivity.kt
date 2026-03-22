@@ -19,6 +19,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.example.behavica.data.AuthApiClient
 import com.example.behavica.data.FirestoreRepository
 import com.example.behavica.logging.BehaviorTracker
 import com.example.behavica.sensors.SensorDataCollector
@@ -48,6 +49,7 @@ class SubmissionActivity : AppCompatActivity() {
     private lateinit var behavior: BehaviorTracker
     private lateinit var sensorCollector: SensorDataCollector
     private lateinit var repo: FirestoreRepository
+    private val authApi = AuthApiClient()
     private lateinit var validator: SubmissionValidator
 
     private val targetWords = listOf("internet", "wifi", "laptop")
@@ -252,17 +254,33 @@ class SubmissionActivity : AppCompatActivity() {
     }
 
     private fun submitToFirebase(){
+        // Authentication mode
         if (isAuthenticationMode) {
-            // Zatiaľ len zobraz message a choď na ending screen
-            Toast.makeText(
-                this,
-                "Autentifikácia done",
-                Toast.LENGTH_LONG
-            ).show()
+            submitButton.text = getString(R.string.saving)
 
-            // TODO: Tu bude neskôr ML predikcia
-
-            goToFinalScreen()
+            authApi.authenticate(
+                userId = userId.orEmpty(),
+                behavior = behavior,
+                sensorData = sensorCollector.getSensorData(),
+                onResult = { result ->
+                    runOnUiThread {
+                        val message = if (result.accepted) {
+                            "✓ Autentifikácia úspešná\nSkóre: ${"%.0f".format(result.score * 100)}%"
+                        } else {
+                            "✗ Autentifikácia zamietnutá\nSkóre: ${"%.0f".format(result.score * 100)}%"
+                        }
+                        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                        goToFinalScreen()
+                    }
+                },
+                onError = { error ->
+                    runOnUiThread {
+                        Toast.makeText(this, "Chyba autentifikácie: $error", Toast.LENGTH_LONG).show()
+                        submitButton.isEnabled = true
+                        submitButton.text = getString(R.string.submit)
+                    }
+                }
+            )
             return
         }
 

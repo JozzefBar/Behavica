@@ -288,12 +288,27 @@ class EmailCheckActivity : AppCompatActivity() {
     }
 
     private fun goToAuthenticationSubmission() {
-        val intent = Intent(this, SubmissionActivity::class.java).apply {
-            putExtra("userEmail", "")
-            putExtra("submissionNumber", 1)
-            putExtra("isAuthentication", true)
-        }
-        startActivity(intent)
-        finish()
+        val email = emailInput.text.toString().trim().lowercase()
+        progressBar.visibility = View.VISIBLE
+        authenticateButton.isEnabled = false
+
+        repo.fetchUserIdByEmail(
+            email = email,
+            onResult = { userId ->
+                val intent = Intent(this, SubmissionActivity::class.java).apply {
+                    putExtra("userId", userId)
+                    putExtra("userEmail", email)
+                    putExtra("submissionNumber", 1)
+                    putExtra("isAuthentication", true)
+                }
+                startActivity(intent)
+                finish()
+            },
+            onError = { error ->
+                progressBar.visibility = View.GONE
+                authenticateButton.isEnabled = true
+                showStatus(getString(R.string.error_generic, error), true)
+            }
+        )
     }
 }

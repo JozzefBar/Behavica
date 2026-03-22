@@ -62,6 +62,22 @@ class FirestoreRepository(
             }
     }
 
+    fun fetchUserIdByEmail(
+        email: String,
+        onResult: (userId: String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        db.collection("Users3").whereEqualTo("email", email.lowercase()).limit(1).get(Source.SERVER)
+            .addOnSuccessListener { query ->
+                if (!query.isEmpty) {
+                    onResult(query.documents[0].id)
+                } else {
+                    onError("User not found")
+                }
+            }
+            .addOnFailureListener { e -> onError(e.message ?: "Unknown error") }
+    }
+
     fun generateUniqueUserIdOnly(
         onResult: (userId: String) -> Unit,
         onError: (error: String) -> Unit,
