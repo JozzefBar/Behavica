@@ -118,13 +118,16 @@ def _extract_touch_features(touch_points: list) -> dict:
         "tp_touchMinor_mean":   float(g["touchMinor"].mean()),
         "tp_touchMinor_std":    _std(g["touchMinor"]),
         "tp_touch_shape_ratio": float(ratio.mean()) if len(ratio) else 1.0,
-        "tp_drag_vel_mean":     float(np.mean(vels))   if len(vels) else 0.0,
-        "tp_drag_vel_std":      float(np.std(vels))    if len(vels) else 0.0,
-        "tp_drag_vel_max":      float(np.max(vels))    if len(vels) else 0.0,
-        "tp_all_vel_mean":      float(np.mean(all_vels)) if len(all_vels) else 0.0,
-        "tp_all_vel_std":       float(np.std(all_vels))  if len(all_vels) else 0.0,
-        "tp_iti_mean":          float(np.mean(dts)) if len(dts) else 0.0,
-        "tp_iti_std":           float(np.std(dts))  if len(dts) else 0.0,
+        "tp_drag_vel_mean":     float(np.mean(vels))              if len(vels) else 0.0,
+        # FIX 6: ddof=1 – konzistentné s _std() v extract_features.py (pandas ddof=1)
+        "tp_drag_vel_std":      float(np.std(vels, ddof=1))      if len(vels) > 1 else 0.0,
+        "tp_drag_vel_max":      float(np.max(vels))              if len(vels) else 0.0,
+        "tp_all_vel_mean":      float(np.mean(all_vels))         if len(all_vels) else 0.0,
+        # FIX 6: ddof=1
+        "tp_all_vel_std":       float(np.std(all_vels, ddof=1))  if len(all_vels) > 1 else 0.0,
+        "tp_iti_mean":          float(np.mean(dts))              if len(dts) else 0.0,
+        # FIX 6: ddof=1
+        "tp_iti_std":           float(np.std(dts, ddof=1))       if len(dts) > 1 else 0.0,
         "tp_x_range":           float(g["x"].max() - g["x"].min()),
         "tp_y_range":           float(g["y"].max() - g["y"].min()),
         "tp_down_count":        int((g["action"] == "ACTION_DOWN").sum()),
@@ -171,14 +174,16 @@ def _extract_keystroke_features(keystrokes: list) -> dict:
         "ks_delete_count":   len(deletes),
         "ks_delete_ratio":   len(deletes) / max(total, 1),
         "ks_auto_count":     auto_count,
-        "ks_iki_mean":       float(np.mean(iki)) if len(iki) else 0.0,
-        "ks_iki_std":        float(np.std(iki))  if len(iki) else 0.0,
+        "ks_iki_mean":       float(np.mean(iki))          if len(iki) else 0.0,
+        # FIX 6: ddof=1
+        "ks_iki_std":        float(np.std(iki, ddof=1))  if len(iki) > 1 else 0.0,
         "ks_iki_min":        float(np.min(iki))  if len(iki) else 0.0,
         "ks_iki_max":        float(np.max(iki))  if len(iki) else 0.0,
         "ks_iki_q25":        float(np.percentile(iki, 25)) if len(iki) else 0.0,
         "ks_iki_q75":        float(np.percentile(iki, 75)) if len(iki) else 0.0,
-        "ks_word_time_mean": float(np.mean(list(word_times.values()))) if word_times else 0.0,
-        "ks_word_time_std":  float(np.std(list(word_times.values())))  if word_times else 0.0,
+        "ks_word_time_mean": float(np.mean(list(word_times.values())))           if word_times else 0.0,
+        # FIX 6: ddof=1
+        "ks_word_time_std":  float(np.std(list(word_times.values()), ddof=1))   if len(word_times) > 1 else 0.0,
     }
 
 
@@ -234,7 +239,8 @@ def _extract_sensor_features(sensor_data: list) -> dict:
 
 def _build_feature_vector(basic: dict, touch_feats: dict,
                           ks_feats: dict, sd_feats: dict,
-                          feature_cols: list) -> np.ndarray:
+                          feature_cols: list,
+                          feature_medians: dict) -> np.ndarray:
     """
     Zostaví feature vektor v presnom poradí feature_cols (z model.pkl).
     Toto poradie musí byť identické s tréningom, inak by model predikoval nesprávne.
@@ -246,8 +252,11 @@ def _build_feature_vector(basic: dict, touch_feats: dict,
     all_feats.update(ks_feats)     # ks_iki_mean, ...
     all_feats.update(sd_feats)     # sd_accelX_mean, ...
 
-    # Zostavíme pole v presnom poradí z tréningových dát
-    return np.array([all_feats.get(col, 0.0) for col in feature_cols], dtype=float)
+    # FIX 5: Chýbajúce hodnoty → mediánová hodnota z tréningu (nie 0, čo je nereálne)
+    return np.array(
+        [all_feats.get(col, feature_medians.get(col, 0.0)) for col in feature_cols],
+        dtype=float,
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -345,10 +354,29 @@ def authenticate(req: https_fn.Request) -> https_fn.Response:
             status=500, headers=headers, content_type="application/json"
         )
 
-    scaler       = model["scaler"]
-    rf           = model["rf"]
-    feature_cols = model["feature_cols"]
-    email_map    = {str(k): v for k, v in model["email_map"].items()}
+    scaler          = model["scaler"]
+    rf              = model["rf"]
+    feature_cols    = model["feature_cols"]
+    email_map       = {str(k): v for k, v in model["email_map"].items()}
+    # FIX 3: EER prah z CV – nahrádza hardcoded 0.5
+    eer_threshold   = model.get("eer_threshold", 0.5)
+    # FIX 5: mediány príznakov – nahrádza fallback 0.0 v _build_feature_vector
+    feature_medians = model.get("feature_medians", {})
+
+    # FIX 4: Ochrana proti neznámemu userId – RF by inak pridelil skóre existujúcim
+    # používateľom a mohol by falošne akceptovať útočníka ktorý nie je v modeli
+    known_classes = [str(c) for c in rf.classes_]
+    if str(claimed_user_id) not in known_classes:
+        result = {
+            "accepted":  False,
+            "score":     0.0,
+            "userId":    claimed_user_id,
+            "email":     "neznámy",
+            "allScores": {},
+            "error":     "Používateľ nie je v modeli",
+        }
+        return https_fn.Response(json.dumps(result), status=200,
+                                 headers=headers, content_type="application/json")
 
     # ── Extrakcia príznakov (rovnaká logika ako v extract_features.py)
     touch_feats = _extract_touch_features(touch_points)
@@ -356,7 +384,8 @@ def authenticate(req: https_fn.Request) -> https_fn.Response:
     sd_feats    = _extract_sensor_features(sensor_data)
 
     # ── Zostavenie feature vektora v správnom poradí
-    raw_vec = _build_feature_vector(basic, touch_feats, ks_feats, sd_feats, feature_cols)
+    raw_vec = _build_feature_vector(basic, touch_feats, ks_feats, sd_feats,
+                                    feature_cols, feature_medians)
 
     # ── Škálovanie: rovnaký scaler ako pri tréningu
     x_scaled = scaler.transform(raw_vec.reshape(1, -1))
@@ -366,11 +395,11 @@ def authenticate(req: https_fn.Request) -> https_fn.Response:
     classes = [str(c) for c in rf.classes_]
     scores  = {cls: float(p) for cls, p in zip(classes, proba)}
 
-    # ── Výsledok verifikácie: je claimed_user najlepší kandidát?
-    best_user     = max(scores, key=scores.get)
+    # ── Výsledok verifikácie
     claimed_score = scores.get(str(claimed_user_id), 0.0)
-    ACCEPTANCE_THRESHOLD = 0.5
-    accepted = bool(best_user == str(claimed_user_id) and claimed_score >= ACCEPTANCE_THRESHOLD)
+    best_user     = max(scores, key=scores.get)
+    # FIX 3: EER prah z CV namiesto hardcoded 0.5 – prah má reálny vzťah k výkonu modelu
+    accepted = bool(best_user == str(claimed_user_id) and claimed_score >= eer_threshold)
 
     result = {
         "accepted":  accepted,

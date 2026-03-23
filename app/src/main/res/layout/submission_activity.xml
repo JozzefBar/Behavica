@@ -148,7 +148,19 @@
                     android:layout_gravity="center"
                     android:textSize="18sp"
                     android:layout_marginTop="16dp"
-                    android:layout_marginBottom="24dp"/>
+                    android:layout_marginBottom="8dp"/>
+
+            <!-- Shown only in auth mode while the model is processing -->
+            <TextView
+                    android:id="@+id/authProcessingNote"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/auth_processing_note"
+                    android:textSize="13sp"
+                    android:textAlignment="center"
+                    android:textColor="#888888"
+                    android:layout_marginBottom="24dp"
+                    android:visibility="gone"/>
 
         </LinearLayout>
     </ScrollView>

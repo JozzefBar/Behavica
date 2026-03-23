@@ -49,7 +49,8 @@ def export():
     tp_feat = extract_touch_features(tp)
     ks_feat = extract_keystroke_features(ks)
     sd_feat = extract_sensor_features(sd)
-    df      = build_feature_matrix(basic, tp_feat, ks_feat, sd_feat)
+    # FIX 5: build_feature_matrix teraz vracia (df, medians_dict) – mediány exportujeme do model.pkl
+    df, feature_medians = build_feature_matrix(basic, tp_feat, ks_feat, sd_feat)
 
     # Odstránime 1. submission každého používateľa – rovnako ako v evaluate.py
     df = df[df["submissionNumber"] != 1].reset_index(drop=True)
@@ -71,16 +72,19 @@ def export():
     #
     # Používame "_" pre hodnoty ktoré nepotrebujeme (konvencia v Pythone)
     print("Spúšťam 5-Fold CV a trénujem finálny model (môže chvíľu trvať)...")
-    _, _, _, _, rf_model, final_scaler = run_rf_cv(X_raw, y)
+    # FIX 3: run_rf_cv teraz vracia 7 hodnôt – pridaný eer_threshold
+    _, _, _, _, rf_model, final_scaler, eer_threshold = run_rf_cv(X_raw, y)
 
     email_map = dict(zip(meta["userId"], meta["email"]))
 
     # ── Uložíme všetko potrebné pre Cloud Function
     model_data = {
-        "scaler":       final_scaler,  # StandardScaler – rovnaký ako v evaluate.py
-        "rf":           rf_model,      # RandomForestClassifier – rovnaký ako v evaluate.py
-        "feature_cols": feature_cols,  # presné poradie features – kľúčové pre správnu predikciu
-        "email_map":    email_map,     # {userId: email} – pre výpis výsledkov
+        "scaler":           final_scaler,     # StandardScaler – rovnaký ako v evaluate.py
+        "rf":               rf_model,         # RandomForestClassifier – rovnaký ako v evaluate.py
+        "feature_cols":     feature_cols,     # presné poradie features – kľúčové pre správnu predikciu
+        "email_map":        email_map,        # {userId: email} – pre výpis výsledkov
+        "eer_threshold":    eer_threshold,    # FIX 3: EER prah z CV – nahrádza hardcoded 0.5 v main.py
+        "feature_medians":  feature_medians,  # FIX 5: mediány príznakov – nahrádza fillna(0) v main.py
     }
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)

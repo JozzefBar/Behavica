@@ -74,6 +74,7 @@
     <string name="please_complete_drag">Please complete the drag test</string>
     <string name="please_rewrite_all_words">Please rewrite all words correctly</string>
     <string name="submission_saved">Submission %d saved!</string>
+    <string name="auth_processing_note">Processing your behavioral data through the model. This may take a moment — please do not close the app.</string>
 
     <!-- EndingActivity XML -->
     <string name="thank_you">Thank you for participating!!</string>
@@ -82,6 +83,10 @@
     <!-- AuthResultActivity -->
     <string name="auth_result_accepted">Authentication Successful</string>
     <string name="auth_result_rejected">Authentication Rejected</string>
+    <string name="auth_result_icon_accepted">✓</string>
+    <string name="auth_result_icon_rejected">✗</string>
+    <string name="auth_result_score_percent">%1$d%%</string>
+    <string name="auth_result_rank">#%1$d</string>
     <string name="auth_result_email_label">Email</string>
     <string name="auth_result_score_label">Your score</string>
     <string name="auth_result_all_scores_label">Comparison with all users:</string>

@@ -8,9 +8,11 @@ import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.behavica.R
+import kotlin.math.roundToInt
 
 /**
  * Displays the detailed result of biometric authentication.
@@ -60,21 +62,27 @@ class AuthResultActivity : AppCompatActivity() {
         if (accepted) {
             // Green = authentication accepted
             statusCard.setBackgroundColor(0xFF4CAF50.toInt())
-            statusIcon.text = "✓"
+            statusIcon.text = getString(R.string.auth_result_icon_accepted)
             statusText.text = getString(R.string.auth_result_accepted)
         } else {
             // Red = authentication rejected
             statusCard.setBackgroundColor(0xFFF44336.toInt())
-            statusIcon.text = "✗"
+            statusIcon.text = getString(R.string.auth_result_icon_rejected)
             statusText.text = getString(R.string.auth_result_rejected)
         }
 
         // ── Details ───────────────────────────────────────────────────────────
         findViewById<TextView>(R.id.email_value).text = email
-        // Display score as percentage (0..1 → 0..100 %)
-        findViewById<TextView>(R.id.score_value).text = "${"%.0f".format(score * 100)}%"
+        // Score as percentage using string resource (avoids setText concatenation warning)
+        findViewById<TextView>(R.id.score_value).text =
+            getString(R.string.auth_result_score_percent, (score * 100).roundToInt())
 
         // ── Scores table for all users ────────────────────────────────────────
+        val colorPrimary  = ContextCompat.getColor(this, R.color.colorPrimary)
+        val colorText     = ContextCompat.getColor(this, R.color.textColorPrimary)
+        val colorRowAlt   = 0xFFF9F9F9.toInt()
+        val colorRankText = 0xFF888888.toInt()
+
         val container = findViewById<LinearLayout>(R.id.scores_container)
         allScores.forEachIndexed { index, (userId, userScore) ->
             val isCurrentUser = userId == currentUserId
@@ -83,32 +91,32 @@ class AuthResultActivity : AppCompatActivity() {
                 orientation = LinearLayout.HORIZONTAL
                 setPadding(16, 14, 16, 14)
                 // Alternating row background for readability
-                if (index % 2 == 0) setBackgroundColor(0xFFF9F9F9.toInt())
+                if (index % 2 == 0) setBackgroundColor(colorRowAlt)
             }
 
-            // Rank column (#1, #2, ...)
+            // Rank column – uses string resource to avoid literal setText warning
             val rankView = TextView(this).apply {
-                text = "#${index + 1}"
+                text = getString(R.string.auth_result_rank, index + 1)
                 textSize = 13f
-                setTextColor(0xFF888888.toInt())
+                setTextColor(colorRankText)
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.5f)
             }
 
-            // User ID column – current user is highlighted in bold blue
+            // User ID column – current user highlighted with colorPrimary + bold
             val userView = TextView(this).apply {
                 text = userId
                 textSize = 14f
-                setTextColor(if (isCurrentUser) 0xFF1565C0.toInt() else 0xFF333333.toInt())
+                setTextColor(if (isCurrentUser) colorPrimary else colorText)
                 if (isCurrentUser) setTypeface(null, Typeface.BOLD)
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 2f)
             }
 
-            // Score column – current user highlighted in bold blue
+            // Score column – percentage via string resource, highlighted for current user
             val scoreView = TextView(this).apply {
-                text = "${"%.0f".format(userScore * 100)}%"
+                text = getString(R.string.auth_result_score_percent, (userScore * 100).roundToInt())
                 textSize = 14f
                 gravity = Gravity.END
-                setTextColor(if (isCurrentUser) 0xFF1565C0.toInt() else 0xFF333333.toInt())
+                setTextColor(if (isCurrentUser) colorPrimary else colorText)
                 if (isCurrentUser) setTypeface(null, Typeface.BOLD)
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             }

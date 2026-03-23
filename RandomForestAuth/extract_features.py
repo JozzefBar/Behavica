@@ -157,15 +157,18 @@ def extract_touch_features(tp: pd.DataFrame) -> pd.DataFrame:
             "tp_touchMinor_std":    _std(g["touchMinor"]),
             "tp_touch_shape_ratio": float(ratio.mean()) if len(ratio) else 1.0,
             # — Rýchlosť dragu
-            "tp_drag_vel_mean":     float(np.mean(vels))    if len(vels) else 0.0,
-            "tp_drag_vel_std":      float(np.std(vels))     if len(vels) else 0.0,
-            "tp_drag_vel_max":      float(np.max(vels))     if len(vels) else 0.0,
+            "tp_drag_vel_mean":     float(np.mean(vels))             if len(vels) else 0.0,
+            # FIX 6: ddof=1 – konzistentné s _std() ktorá používa pandas .std() (ddof=1)
+            "tp_drag_vel_std":      float(np.std(vels, ddof=1))      if len(vels) > 1 else 0.0,
+            "tp_drag_vel_max":      float(np.max(vels))              if len(vels) else 0.0,
             # — Celková rýchlosť pohybu
-            "tp_all_vel_mean":      float(np.mean(all_vels)) if len(all_vels) else 0.0,
-            "tp_all_vel_std":       float(np.std(all_vels))  if len(all_vels) else 0.0,
+            "tp_all_vel_mean":      float(np.mean(all_vels))         if len(all_vels) else 0.0,
+            # FIX 6: ddof=1
+            "tp_all_vel_std":       float(np.std(all_vels, ddof=1))  if len(all_vels) > 1 else 0.0,
             # — Inter-touch interval
-            "tp_iti_mean":          float(np.mean(dts)) if len(dts) else 0.0,
-            "tp_iti_std":           float(np.std(dts))  if len(dts) else 0.0,
+            "tp_iti_mean":          float(np.mean(dts))              if len(dts) else 0.0,
+            # FIX 6: ddof=1
+            "tp_iti_std":           float(np.std(dts, ddof=1))       if len(dts) > 1 else 0.0,
             # — Pokrytá plocha obrazovky
             "tp_x_range":           float(g["x"].max() - g["x"].min()),
             "tp_y_range":           float(g["y"].max() - g["y"].min()),
@@ -228,16 +231,18 @@ def extract_keystroke_features(ks: pd.DataFrame) -> pd.DataFrame:
             "ks_delete_ratio":   len(deletes) / max(total, 1),
             "ks_auto_count":     auto_count,
             # Inter-key interval
-            "ks_iki_mean":       float(np.mean(iki)) if len(iki) else 0.0,
-            "ks_iki_std":        float(np.std(iki))  if len(iki) else 0.0,
+            "ks_iki_mean":       float(np.mean(iki))           if len(iki) else 0.0,
+            # FIX 6: ddof=1
+            "ks_iki_std":        float(np.std(iki, ddof=1))   if len(iki) > 1 else 0.0,
             "ks_iki_min":        float(np.min(iki))  if len(iki) else 0.0,
             "ks_iki_max":        float(np.max(iki))  if len(iki) else 0.0,
             # Kvartilyy IKI – zachytávajú tvar rozdelenia rýchlosti písania
             "ks_iki_q25":        float(np.percentile(iki, 25)) if len(iki) else 0.0,
             "ks_iki_q75":        float(np.percentile(iki, 75)) if len(iki) else 0.0,
             # Čas per slovo (internet, wifi, laptop)
-            "ks_word_time_mean": float(np.mean(list(word_times.values()))) if word_times else 0.0,
-            "ks_word_time_std":  float(np.std(list(word_times.values())))  if word_times else 0.0,
+            "ks_word_time_mean": float(np.mean(list(word_times.values())))           if word_times else 0.0,
+            # FIX 6: ddof=1
+            "ks_word_time_std":  float(np.std(list(word_times.values()), ddof=1))   if len(word_times) > 1 else 0.0,
         })
     return pd.DataFrame(rows)
 
@@ -324,9 +329,16 @@ def build_feature_matrix(basic, tp_feat, ks_feat, sd_feat) -> pd.DataFrame:
     # Pripojiť touch, keystroke a senzorové príznaky (join cez userId + submissionNumber)
     for feat_df in [tp_feat, ks_feat, sd_feat]:
         df = df.merge(feat_df, on=["userId", "submissionNumber"], how="left")
-    # Doplniť prípadné NaN nulami (niektoré submissiony nemusia mať všetky typy záznamov)
-    df = df.fillna(0.0)
-    return df
+
+    # FIX 5: Namiesto fillna(0) použijeme mediány – 0 je pre niektoré príznaky
+    # nereálna hodnota (napr. tp_pressure_mean=0 by zmiatol scaler aj model)
+    feat_cols     = [c for c in df.columns if c not in ["userId", "submissionNumber"]]
+    medians       = df[feat_cols].median()           # ignoruje NaN pri výpočte
+    df[feat_cols] = df[feat_cols].fillna(medians)    # NaN → mediánová hodnota stĺpca
+    df            = df.fillna(0.0)                   # fallback ak celý stĺpec je NaN
+    medians_dict  = medians.fillna(0.0).to_dict()    # slovník pre export do model.pkl
+
+    return df, medians_dict
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -405,7 +417,8 @@ def _main_logic():
     tp_feat = extract_touch_features(tp)
     ks_feat = extract_keystroke_features(ks)
     sd_feat = extract_sensor_features(sd)
-    df      = build_feature_matrix(basic, tp_feat, ks_feat, sd_feat)
+    # FIX 5: build_feature_matrix teraz vracia (df, medians_dict) – mediány nepotrebujeme tu
+    df, _   = build_feature_matrix(basic, tp_feat, ks_feat, sd_feat)
 
     # Odstránime 1. submission každého používateľa – slúžil ako "tréningový/učiaci"
     # pokus a jeho vzory nemusia reprezentovať bežné správanie daného používateľa

@@ -40,6 +40,7 @@ class SubmissionActivity : AppCompatActivity() {
     private lateinit var rewriteTextInput: TextInputEditText
     private lateinit var checkbox: CheckBox
     private lateinit var submitButton: Button
+    private lateinit var authProcessingNote: TextView
 
     private lateinit var db: FirebaseFirestore
 
@@ -138,6 +139,7 @@ class SubmissionActivity : AppCompatActivity() {
         rewriteTextInput = findViewById(R.id.rewriteTextInput)
         checkbox = findViewById(R.id.checkBox)
         submitButton = findViewById(R.id.submitButton)
+        authProcessingNote = findViewById(R.id.authProcessingNote)
     }
 
     private fun setupDragTest() {
@@ -257,6 +259,7 @@ class SubmissionActivity : AppCompatActivity() {
         // Authentication mode
         if (isAuthenticationMode) {
             submitButton.text = getString(R.string.saving)
+            authProcessingNote.visibility = View.VISIBLE
 
             authApi.authenticate(
                 userId = userId.orEmpty(),
@@ -272,6 +275,7 @@ class SubmissionActivity : AppCompatActivity() {
                         Toast.makeText(this, "Chyba autentifikácie: $error", Toast.LENGTH_LONG).show()
                         submitButton.isEnabled = true
                         submitButton.text = getString(R.string.submit)
+                        authProcessingNote.visibility = View.GONE
                     }
                 }
             )

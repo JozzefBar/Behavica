@@ -141,19 +141,29 @@ def run_rf_cv(X_raw: np.ndarray, y: np.ndarray):
     (pre feature importance, demo autentifikáciu a export).
 
     Vracia:
-      y_true      – skutočné triedy (userId) testovacích submissionov
-      y_pred      – predikované triedy
-      y_proba     – matica pravdepodobností [n_samples × n_classes]
-      rf_classes  – poradie tried v y_proba
-      rf          – finálny RF model (natrénovaný na všetkých dátach)
-      scaler      – finálny scaler (natrénovaný na všetkých dátach)
+      y_true        – skutočné triedy (userId) testovacích submissionov
+      y_pred        – predikované triedy
+      y_proba       – matica pravdepodobností [n_samples × n_classes]
+      rf_classes    – poradie tried v y_proba
+      rf            – finálny RF model (natrénovaný na všetkých dátach)
+      scaler        – finálny scaler (natrénovaný na všetkých dátach)
+      eer_threshold – FIX 3: EER prah z CV skóre (exportovaný do model.pkl)
     """
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    # 300 stromov, bez obmedzenia hĺbky
-    rf  = RandomForestClassifier(n_estimators=300, max_depth=None,
-                                 min_samples_leaf=1, random_state=42)
+
+    # FIX 1+2: RF parametre definované raz ako slovník – neopakujú sa a ľahko sa menia.
+    # max_depth=20, min_samples_leaf=3, max_features='sqrt' zabraňujú overfittingu
+    # na malom datasete (bez obmedzení sa stromy memorujú tréningové dáta).
+    rf_params = dict(
+        n_estimators=300,
+        max_depth=20,          # FIX 2: obmedzenie hĺbky (None = overfit)
+        min_samples_leaf=3,    # FIX 2: min. 3 vzorky v liste (1 = overfit)
+        max_features="sqrt",   # FIX 2: sqrt príznakov pri každom splite
+        random_state=42,
+    )
 
     y_true_list, y_pred_list, y_proba_list = [], [], []
+    fold_classes = None
     n_splits = skf.get_n_splits()
     correct  = 0
     total    = 0
@@ -167,9 +177,12 @@ def run_rf_cv(X_raw: np.ndarray, y: np.ndarray):
         X_tr = fold_scaler.fit_transform(X_tr_raw)
         X_te = fold_scaler.transform(X_te_raw)
 
-        rf.fit(X_tr, y_tr)
-        preds  = rf.predict(X_te)
-        probas = rf.predict_proba(X_te)
+        # FIX 1: Nový RF objekt v každom folde – čistejší kód, žiadne prekrývanie stavu
+        fold_rf = RandomForestClassifier(**rf_params)
+        fold_rf.fit(X_tr, y_tr)
+        preds        = fold_rf.predict(X_te)
+        probas       = fold_rf.predict_proba(X_te)
+        fold_classes = fold_rf.classes_   # triedy sú rovnaké vo všetkých foldoch (stratified)
 
         correct += int(np.sum(preds == y_te))
         total   += len(y_te)
@@ -185,14 +198,25 @@ def run_rf_cv(X_raw: np.ndarray, y: np.ndarray):
 
     print()
 
-    # Finálny scaler a model natrénované na celých dátach
-    # → slúžia pre feature importance, demo autentifikáciu a export
-    final_scaler = StandardScaler()
-    X_all = final_scaler.fit_transform(X_raw)
-    rf.fit(X_all, y)
+    y_true  = np.array(y_true_list)
+    y_pred  = np.array(y_pred_list)
+    y_proba = np.array(y_proba_list)
 
-    return (np.array(y_true_list), np.array(y_pred_list),
-            np.array(y_proba_list), rf.classes_, rf, final_scaler)
+    # FIX 3: EER prah vypočítaný z CV skóre – nie z tréningových dát.
+    # Tento prah sa exportuje do model.pkl a používa v main.py namiesto hardcoded 0.5.
+    g_cv, i_cv    = rf_verification_scores(y_true, y_proba, fold_classes)
+    cv_metrics    = compute_metrics(g_cv, i_cv)
+    eer_threshold = cv_metrics["EER_threshold"]
+
+    # Finálny scaler a model natrénované na celých dátach
+    # → slúžia pre feature importance a export do model.pkl
+    final_scaler = StandardScaler()
+    X_all        = final_scaler.fit_transform(X_raw)
+    # FIX 1: Nový RF objekt pre finálny model
+    final_rf = RandomForestClassifier(**rf_params)
+    final_rf.fit(X_all, y)
+
+    return (y_true, y_pred, y_proba, fold_classes, final_rf, final_scaler, eer_threshold)
 
 
 def rf_verification_scores(y_true, y_proba, rf_classes):
@@ -662,7 +686,9 @@ def main():
 
     # ── Stratified 5-Fold cross-validácia ─────────────────────────────────────
     print("Spúšťam RF Stratified 5-Fold cross-validáciu ...")
-    y_true, y_pred, y_proba, rf_classes, rf_model, scaler = run_rf_cv(X_raw, y)
+    # FIX 1+2+3: run_rf_cv teraz vracia 7 hodnôt (pridaný eer_threshold)
+    # scaler sa tu nepoužíva – exportuje ho export_model.py priamo z run_rf_cv
+    y_true, y_pred, y_proba, rf_classes, rf_model, _, eer_threshold = run_rf_cv(X_raw, y)
     rf_acc     = float(np.mean(y_true == y_pred))
     g_rf, i_rf = rf_verification_scores(y_true, y_proba, rf_classes)
     m_rf       = compute_metrics(g_rf, i_rf)
@@ -671,19 +697,46 @@ def main():
     print_metrics_table(m_rf, rf_acc, meta, y_true, y_pred, csv_label)
 
     # ── Demo autentifikácie ───────────────────────────────────────────────────
-    # POZOR: Demo používa tréningové dáta a rf_model natrénovaný na celom datasete.
-    # Výsledok NIE JE validný pre reálne hodnotenie – slúži len ako ukážka výstupu.
-    # Pre skutočnú evaluáciu pozri 5-Fold CV výsledky vyššie.
-    email_map = {str(k): v for k, v in zip(meta["userId"], meta["email"])}
-    print("\n  DEMO: Verifikácia 1. dostupného submissnu každého používateľa")
-    print("  (submission bol zahrnutý v tréningu – len ukážka výstupu)\n")
-    for uid in np.unique(y):
-        idx = np.where(df["userId"] == uid)[0]
-        if len(idx) == 0:
+    # FIX 8: Demo teraz používa CV predikcie (nie tréningové dáta) → realistické výsledky.
+    # Pre každého používateľa ukážeme prvý submission z testovacieho foldu –
+    # model ho v danom folde nikdy nevidel, takže výsledok je férový.
+    email_map  = {str(k): v for k, v in zip(meta["userId"], meta["email"])}
+    classes_l  = list(rf_classes)
+    print(f"\n  DEMO: Prvá CV predikcia za každého používateľa")
+    print(f"  (EER prah = {eer_threshold*100:.2f}% – rovnaký ako sa exportuje do model.pkl)\n")
+
+    for uid in np.unique(y_true):
+        uid_idx = np.where(y_true == uid)[0]
+        if len(uid_idx) == 0:
             continue
-        fvec = X_raw[idx[0]]
-        res  = authenticate(fvec, rf_model, scaler, email_map, claimed_user_id=uid)
-        print_auth_result(res)
+
+        proba_row     = y_proba[uid_idx[0]]
+        claimed_score = float(proba_row[classes_l.index(uid)])
+        accepted      = claimed_score >= eer_threshold
+        email         = email_map.get(str(uid), str(uid))
+        status        = "✓ AKCEPTOVANÝ" if accepted else "✗ ODMIETNUTÝ"
+
+        # Zoradíme všetky skóre zostupne – ukážeme poradie daného používateľa
+        all_scores   = sorted(zip(classes_l, proba_row), key=lambda x: x[1], reverse=True)
+        user_rank    = next(i + 1 for i, (c, _) in enumerate(all_scores) if c == uid)
+        n_users      = len(all_scores)
+        best_uid     = all_scores[0][0]
+        best_email   = email_map.get(str(best_uid), str(best_uid))
+        best_score   = all_scores[0][1]
+
+        print(f"  {status}  {email:<42s}  skóre={claimed_score*100:.1f}%  "
+              f"rank=#{user_rank}/{n_users}")
+
+        # Ak nie je #1, ukáž kto bol najlepší kandidát
+        if user_rank > 1:
+            print(f"  {'':>14s}  → najlepší: {best_email:<42s}  skóre={best_score*100:.1f}%")
+
+        # Top-5 kandidáti pre každého používateľa
+        print(f"  {'':>14s}  Top-5: ", end="")
+        for rank_i, (c, s) in enumerate(all_scores[:5], 1):
+            marker = "◀" if c == uid else " "
+            print(f"#{rank_i} {email_map.get(str(c), str(c)).split('@')[0]}={s*100:.1f}%{marker}  ", end="")
+        print()
 
     # ── Vizualizácia ──────────────────────────────────────────────────────────
     print("\nGenerujem vizualizácie ...")

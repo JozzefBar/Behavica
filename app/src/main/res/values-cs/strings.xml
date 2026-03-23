@@ -75,6 +75,7 @@
     <string name="please_complete_drag">Prosím dokončite drag test</string>
     <string name="please_rewrite_all_words">Prepíšte prosím všetky slová správne</string>
     <string name="submission_saved">Odoslanie %d uložené!</string>
+    <string name="auth_processing_note">Spracovávame vaše behaviorálne dáta cez model. Môže to chvíľu trvať — prosím nevypínajte aplikáciu.</string>
 
     <!-- EndingActivity XML -->
     <string name="thank_you">Ďakujeme za účasť!!</string>
@@ -83,6 +84,10 @@
     <!-- AuthResultActivity -->
     <string name="auth_result_accepted">Autentifikácia úspešná</string>
     <string name="auth_result_rejected">Autentifikácia zamietnutá</string>
+    <string name="auth_result_icon_accepted">✓</string>
+    <string name="auth_result_icon_rejected">✗</string>
+    <string name="auth_result_score_percent">%1$d%%</string>
+    <string name="auth_result_rank">#%1$d</string>
     <string name="auth_result_email_label">Email</string>
     <string name="auth_result_score_label">Vaše skóre</string>
     <string name="auth_result_all_scores_label">Porovnanie so všetkými používateľmi:</string>
