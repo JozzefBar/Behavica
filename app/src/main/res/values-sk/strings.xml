@@ -80,6 +80,13 @@
     <string name="thank_you">Ďakujeme za účasť!!</string>
     <string name="data_uploaded">Vaše dáta boli úspešne nahrané do databázy!</string>
 
+    <!-- AuthResultActivity -->
+    <string name="auth_result_accepted">Autentifikácia úspešná</string>
+    <string name="auth_result_rejected">Autentifikácia zamietnutá</string>
+    <string name="auth_result_email_label">Email</string>
+    <string name="auth_result_score_label">Vaše skóre</string>
+    <string name="auth_result_all_scores_label">Porovnanie so všetkými používateľmi:</string>
+
     <!-- AppStartHandler errors -->
     <string name="no_device_id">ID zariadenia nie je dostupné</string>
     <string name="error_checking_device">Chyba pri kontrole zariadenia: %s</string>

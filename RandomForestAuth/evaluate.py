@@ -579,7 +579,7 @@ def print_metrics_table(m_rf, rf_acc, meta, y_true, y_pred, csv_label: str = "")
         ("FAR pri EER",                      f"{m_rf['FAR'][eer_idx]*100:.2f}%"),
         ("FRR pri EER",                      f"{m_rf['FRR'][eer_idx]*100:.2f}%"),
         ("Accuracy pri EER prahu",           f"{m_rf['Accuracy']*100:.2f}%"),
-        ("AUC (plocha pod ROC krivkou)",     f"{m_rf['AUC']:.4f}"),
+        ("AUC (plocha pod ROC krivkou)",     f"{m_rf['AUC']*100:.2f}%"),
         ("Identifikačná Acc. (5-Fold CV)",   f"{rf_acc*100:.2f}%"),
         ("", ""),
         ("Genuine vzorky (celkom)",          str(m_rf["n_genuine"])),

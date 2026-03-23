@@ -79,6 +79,13 @@
     <string name="thank_you">Thank you for participating!!</string>
     <string name="data_uploaded">Your data has been successfully uploaded to the database!</string>
 
+    <!-- AuthResultActivity -->
+    <string name="auth_result_accepted">Authentication Successful</string>
+    <string name="auth_result_rejected">Authentication Rejected</string>
+    <string name="auth_result_email_label">Email</string>
+    <string name="auth_result_score_label">Your score</string>
+    <string name="auth_result_all_scores_label">Comparison with all users:</string>
+
     <!-- AppStartHandler errors -->
     <string name="no_device_id">No device ID available</string>
     <string name="error_checking_device">Error checking device: %s</string>

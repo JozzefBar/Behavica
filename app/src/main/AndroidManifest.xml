@@ -34,6 +34,10 @@
                 android:name=".ui.EndingActivity"
                 android:exported="false" />
 
+        <activity
+                android:name=".ui.AuthResultActivity"
+                android:exported="false" />
+
     </application>
 
 </manifest>

@@ -264,13 +264,7 @@ class SubmissionActivity : AppCompatActivity() {
                 sensorData = sensorCollector.getSensorData(),
                 onResult = { result ->
                     runOnUiThread {
-                        val message = if (result.accepted) {
-                            "✓ Autentifikácia úspešná\nSkóre: ${"%.0f".format(result.score * 100)}%"
-                        } else {
-                            "✗ Autentifikácia zamietnutá\nSkóre: ${"%.0f".format(result.score * 100)}%"
-                        }
-                        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-                        goToFinalScreen()
+                        goToAuthResultScreen(result)
                     }
                 },
                 onError = { error ->
@@ -329,6 +323,21 @@ class SubmissionActivity : AppCompatActivity() {
 
     private fun goToFinalScreen() {
         startActivity(Intent(this, EndingActivity::class.java))
+        finish()
+    }
+
+    // After authentication, navigate to the detailed result screen instead of the simple EndingActivity
+    private fun goToAuthResultScreen(result: com.example.behavica.data.AuthApiClient.AuthResult) {
+        val intent = Intent(this, AuthResultActivity::class.java).apply {
+            putExtra("accepted", result.accepted)
+            putExtra("score", result.score)
+            putExtra("email", result.email)
+            putExtra("userId", userId.orEmpty())
+            // Map cannot be put directly into Intent, so we split it into two arrays
+            putExtra("allScores_keys", result.allScores.keys.toTypedArray())
+            putExtra("allScores_values", result.allScores.values.toDoubleArray())
+        }
+        startActivity(intent)
         finish()
     }
 }
