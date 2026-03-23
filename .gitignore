@@ -10,3 +10,6 @@ functions/venv/
 
 # Trained model – regenerate via export_model.py
 functions/model.pkl
+
+RandomForestAuth/*.csv
+RandomForestAuth/ablation_csvs

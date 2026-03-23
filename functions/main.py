@@ -4,7 +4,7 @@ Behavica – Firebase Cloud Function: Biometrická autentifikácia
 
 Endpoint: POST /authenticate
 Prijme surové behaviorálne dáta z Android apky (touch body, keystrokes,
-senzory, základné metriky), extrahuje rovnaké príznaky ako authenticator.py,
+senzory, základné metriky), extrahuje rovnaké príznaky ako extract_features.py,
 porovná ich s uloženým profilom používateľa a vráti výsledok autentifikácie.
 
 Tok:
@@ -41,7 +41,7 @@ def _load_model():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# EXTRAKCIA PRÍZNAKOV – rovnaká logika ako authenticator.py
+# EXTRAKCIA PRÍZNAKOV – rovnaká logika ako extract_features.py
 # Funkcie sú duplikované tu (nie importované) pretože functions/ je
 # samostatný Python balík bez prístupu k RandomForestAuth/
 # ══════════════════════════════════════════════════════════════════════════════
@@ -350,7 +350,7 @@ def authenticate(req: https_fn.Request) -> https_fn.Response:
     feature_cols = model["feature_cols"]
     email_map    = {str(k): v for k, v in model["email_map"].items()}
 
-    # ── Extrakcia príznakov (rovnaká logika ako v authenticator.py)
+    # ── Extrakcia príznakov (rovnaká logika ako v extract_features.py)
     touch_feats = _extract_touch_features(touch_points)
     ks_feats    = _extract_keystroke_features(keystrokes)
     sd_feats    = _extract_sensor_features(sensor_data)
