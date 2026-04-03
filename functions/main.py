@@ -189,7 +189,7 @@ def _extract_keystroke_features(keystrokes: list) -> dict:
 
 def _extract_sensor_features(sensor_data: list) -> dict:
     """
-    Extrahuje 20 senzorových príznakov zo zoznamu meraní.
+    Extrahuje 22 senzorových príznakov zo zoznamu meraní.
     Každé meranie je dict s kľúčmi: accelX, accelY, accelZ, gyroX, gyroY, gyroZ.
     """
     empty = {k: 0.0 for k in [

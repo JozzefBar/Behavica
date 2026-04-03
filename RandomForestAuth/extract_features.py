@@ -158,16 +158,16 @@ def extract_touch_features(tp: pd.DataFrame) -> pd.DataFrame:
             "tp_touch_shape_ratio": float(ratio.mean()) if len(ratio) else 1.0,
             # — Rýchlosť dragu
             "tp_drag_vel_mean":     float(np.mean(vels))             if len(vels) else 0.0,
-            # FIX 6: ddof=1 – konzistentné s _std() ktorá používa pandas .std() (ddof=1)
+            # ddof=1 – konzistentné s _std() ktorá používa pandas .std() (ddof=1)
             "tp_drag_vel_std":      float(np.std(vels, ddof=1))      if len(vels) > 1 else 0.0,
             "tp_drag_vel_max":      float(np.max(vels))              if len(vels) else 0.0,
             # — Celková rýchlosť pohybu
             "tp_all_vel_mean":      float(np.mean(all_vels))         if len(all_vels) else 0.0,
-            # FIX 6: ddof=1
+            # ddof=1
             "tp_all_vel_std":       float(np.std(all_vels, ddof=1))  if len(all_vels) > 1 else 0.0,
             # — Inter-touch interval
             "tp_iti_mean":          float(np.mean(dts))              if len(dts) else 0.0,
-            # FIX 6: ddof=1
+            # ddof=1
             "tp_iti_std":           float(np.std(dts, ddof=1))       if len(dts) > 1 else 0.0,
             # — Pokrytá plocha obrazovky
             "tp_x_range":           float(g["x"].max() - g["x"].min()),
@@ -232,7 +232,7 @@ def extract_keystroke_features(ks: pd.DataFrame) -> pd.DataFrame:
             "ks_auto_count":     auto_count,
             # Inter-key interval
             "ks_iki_mean":       float(np.mean(iki))           if len(iki) else 0.0,
-            # FIX 6: ddof=1
+            # ddof=1
             "ks_iki_std":        float(np.std(iki, ddof=1))   if len(iki) > 1 else 0.0,
             "ks_iki_min":        float(np.min(iki))  if len(iki) else 0.0,
             "ks_iki_max":        float(np.max(iki))  if len(iki) else 0.0,
@@ -241,7 +241,7 @@ def extract_keystroke_features(ks: pd.DataFrame) -> pd.DataFrame:
             "ks_iki_q75":        float(np.percentile(iki, 75)) if len(iki) else 0.0,
             # Čas per slovo (internet, wifi, laptop)
             "ks_word_time_mean": float(np.mean(list(word_times.values())))           if word_times else 0.0,
-            # FIX 6: ddof=1
+            # ddof=1
             "ks_word_time_std":  float(np.std(list(word_times.values()), ddof=1))   if len(word_times) > 1 else 0.0,
         })
     return pd.DataFrame(rows)
@@ -417,7 +417,7 @@ def _main_logic():
     tp_feat = extract_touch_features(tp)
     ks_feat = extract_keystroke_features(ks)
     sd_feat = extract_sensor_features(sd)
-    # FIX 5: build_feature_matrix teraz vracia (df, medians_dict) – mediány nepotrebujeme tu
+    # build_feature_matrix teraz vracia (df, medians_dict) – mediány nepotrebujeme tu
     df, _   = build_feature_matrix(basic, tp_feat, ks_feat, sd_feat)
 
     # Odstránime 1. submission každého používateľa – slúžil ako "tréningový/učiaci"

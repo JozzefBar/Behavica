@@ -151,14 +151,14 @@ def run_rf_cv(X_raw: np.ndarray, y: np.ndarray):
     """
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
-    # FIX 1+2: RF parametre definované raz ako slovník – neopakujú sa a ľahko sa menia.
+    # RF parametre definované raz ako slovník – neopakujú sa a ľahko sa menia.
     # max_depth=20, min_samples_leaf=3, max_features='sqrt' zabraňujú overfittingu
     # na malom datasete (bez obmedzení sa stromy memorujú tréningové dáta).
     rf_params = dict(
         n_estimators=300,
-        max_depth=20,          # FIX 2: obmedzenie hĺbky (None = overfit)
-        min_samples_leaf=3,    # FIX 2: min. 3 vzorky v liste (1 = overfit)
-        max_features="sqrt",   # FIX 2: sqrt príznakov pri každom splite
+        max_depth=20,          # obmedzenie hĺbky (None = overfit)
+        min_samples_leaf=3,    # min. 3 vzorky v liste (1 = overfit)
+        max_features="sqrt",   # sqrt príznakov pri každom splite
         random_state=42,
     )
 
@@ -177,7 +177,7 @@ def run_rf_cv(X_raw: np.ndarray, y: np.ndarray):
         X_tr = fold_scaler.fit_transform(X_tr_raw)
         X_te = fold_scaler.transform(X_te_raw)
 
-        # FIX 1: Nový RF objekt v každom folde – čistejší kód, žiadne prekrývanie stavu
+        # Nový RF objekt v každom folde – čistejší kód, žiadne prekrývanie stavu
         fold_rf = RandomForestClassifier(**rf_params)
         fold_rf.fit(X_tr, y_tr)
         preds        = fold_rf.predict(X_te)
@@ -202,7 +202,7 @@ def run_rf_cv(X_raw: np.ndarray, y: np.ndarray):
     y_pred  = np.array(y_pred_list)
     y_proba = np.array(y_proba_list)
 
-    # FIX 3: EER prah vypočítaný z CV skóre – nie z tréningových dát.
+    # EER prah vypočítaný z CV skóre – nie z tréningových dát.
     # Tento prah sa exportuje do model.pkl a používa v main.py namiesto hardcoded 0.5.
     g_cv, i_cv    = rf_verification_scores(y_true, y_proba, fold_classes)
     cv_metrics    = compute_metrics(g_cv, i_cv)
@@ -212,31 +212,40 @@ def run_rf_cv(X_raw: np.ndarray, y: np.ndarray):
     # → slúžia pre feature importance a export do model.pkl
     final_scaler = StandardScaler()
     X_all        = final_scaler.fit_transform(X_raw)
-    # FIX 1: Nový RF objekt pre finálny model
+    # Nový RF objekt pre finálny model
     final_rf = RandomForestClassifier(**rf_params)
     final_rf.fit(X_all, y)
 
     return (y_true, y_pred, y_proba, fold_classes, final_rf, final_scaler, eer_threshold)
 
 
-def rf_verification_scores(y_true, y_proba, rf_classes):
+def rf_verification_scores(y_true, y_proba, rf_classes, top_k=3):
     """
     Konvertuje LOO/CV pravdepodobnosti RF na genuine a impostor skóre.
 
     Pre každý testovací submission od používateľa u:
       genuine score  = P(u)    – pravdepodobnosť, že RF zaradí submission správne
-      impostor score = P(v≠u)  – pravdepodobnosti pre iné triedy
-                                 (simulujeme: cudzí submission tvrdí, že je u)
+      impostor score = top-K najvyšších P(v≠u) – najsilnejší konkurenti
 
-    Celkovo: N genuine skóre (jedno na submission) + N×(K−1) impostor skóre.
+    Prečo top-K namiesto všetkých:
+      Pri 26 triedach väčšina P(v≠u) je ~0.00-0.04 (triviálne nízke), pretože
+      RF rozdeľuje 1.0 medzi 26 tried. Tieto triviálne nulové skóre umelo
+      znižujú FAR a nafukujú metriky. Top-K (default=3) berie len najsilnejších
+      konkurentov → realistickejšie skóre simulujúce reálny útok.
+
+    Celkovo: N genuine skóre + N×top_k impostor skóre.
     """
     genuine, impostor = [], []
     for yt, proba in zip(y_true, y_proba):
         cls_idx = int(np.where(rf_classes == yt)[0][0])
         genuine.append(proba[cls_idx])
-        for j, c in enumerate(rf_classes):
-            if c != yt:
-                impostor.append(proba[j])
+        # Zozbierame skóre všetkých tried okrem skutočnej a zoradíme zostupne
+        imp_scores = sorted(
+            [proba[j] for j, c in enumerate(rf_classes) if c != yt],
+            reverse=True,
+        )
+        # Vezmeme len top-K najsilnejších impostrov (najrealistickejšie hrozby)
+        impostor.extend(imp_scores[:top_k])
     return np.array(genuine), np.array(impostor)
 
 
@@ -248,7 +257,8 @@ def authenticate(raw_feature_vector: np.ndarray,
                  rf_model: RandomForestClassifier,
                  scaler: StandardScaler,
                  email_map: dict,
-                 claimed_user_id=None) -> dict:
+                 claimed_user_id=None,
+                 eer_threshold: float = 0.5) -> dict:
     """
     Autentifikuje jeden submission pomocou natrénovaného Random Forest modelu.
 
@@ -264,6 +274,7 @@ def authenticate(raw_feature_vector: np.ndarray,
       email_map           – slovník {userId: email} pre čitateľné výstupy
       claimed_user_id     – ak zadaný → verifikácia (1:1)
                             inak       → identifikácia (1:N)
+      eer_threshold       – EER prah z CV (rovnaký ako v Cloud Function main.py)
     """
     x     = scaler.transform(raw_feature_vector.reshape(1, -1))
     proba = rf_model.predict_proba(x)[0]
@@ -283,13 +294,15 @@ def authenticate(raw_feature_vector: np.ndarray,
 
     if claimed_user_id:
         # VERIFIKÁCIA: "Som používateľ X, je to naozaj ja?"
+        claimed_score = scores.get(str(claimed_user_id), 0.0)
         result.update({
             "claimed_user":   claimed_user_id,
             "claimed_email":  email_map.get(str(claimed_user_id), "?"),
-            "score":          round(scores.get(str(claimed_user_id), 0.0), 4),
+            "score":          round(claimed_score, 4),
             "confidence_pct": pct.get(str(claimed_user_id), 0.0),
-            # Akceptovaný = RF hovorí, že to je naozaj claimed_user
-            "accepted":       best_user == str(claimed_user_id),
+            # Akceptovaný = best_user je claimed_user A skóre >= EER prah
+            # Konzistentné s Cloud Function (main.py) – rovnaká podmienka
+            "accepted":       best_user == str(claimed_user_id) and claimed_score >= eer_threshold,
         })
     else:
         # IDENTIFIKÁCIA: "Kto z N používateľov to je?"
@@ -512,12 +525,16 @@ def _fig6_per_user_scores(ax, y_true, y_proba, rf_classes, meta):
     positions_i = positions_g + 0.9
 
     bp1 = ax.boxplot(data_genuine, positions=positions_g, widths=0.7,
-                     patch_artist=True, medianprops={"color": "black", "lw": 2})
+                     patch_artist=True, medianprops={"color": "black", "lw": 2},
+                     flierprops={"marker": "o", "markerfacecolor": COLORS["genuine"],
+                                 "markeredgecolor": COLORS["genuine"], "markersize": 3})
     for patch in bp1["boxes"]:
         patch.set_facecolor(COLORS["genuine"]); patch.set_alpha(0.75)
 
     bp2 = ax.boxplot(data_impostor, positions=positions_i, widths=0.7,
-                     patch_artist=True, medianprops={"color": "black", "lw": 2})
+                     patch_artist=True, medianprops={"color": "black", "lw": 2},
+                     flierprops={"marker": "o", "markerfacecolor": COLORS["impostor"],
+                                 "markeredgecolor": COLORS["impostor"], "markersize": 3})
     for patch in bp2["boxes"]:
         patch.set_facecolor(COLORS["impostor"]); patch.set_alpha(0.75)
 
@@ -622,7 +639,7 @@ def print_metrics_table(m_rf, rf_acc, meta, y_true, y_pred, csv_label: str = "")
     for u in np.unique(y_true):
         mask  = y_true == u
         acc_u = np.mean(y_pred[mask] == u)
-        print(f"    {email_map.get(u, u):<40s}  "
+        print(f"    {str(email_map.get(u, u)):<40s}  "
               f"Acc: {acc_u*100:.1f}%  ({int(acc_u * mask.sum())}/{mask.sum()})")
     print("═" * 56)
 
