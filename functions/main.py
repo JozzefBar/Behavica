@@ -371,9 +371,9 @@ def authenticate(req: https_fn.Request) -> https_fn.Response:
             "accepted":  False,
             "score":     0.0,
             "userId":    claimed_user_id,
-            "email":     "neznámy",
+            "email":     "unknown",
             "allScores": {},
-            "error":     "Používateľ nie je v modeli",
+            "error":     "user_not_in_model",
         }
         return https_fn.Response(json.dumps(result), status=200,
                                  headers=headers, content_type="application/json")

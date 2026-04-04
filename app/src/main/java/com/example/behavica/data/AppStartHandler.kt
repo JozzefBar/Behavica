@@ -15,7 +15,11 @@ class AppStartHandler (
 
     sealed class StartDestination {
         object EmailCheck : StartDestination()
-        data class EmailCheckBlocked(val message: String) : StartDestination()
+        data class EmailCheckBlocked(
+            val message: String,
+            val userId: String,
+            val email: String
+        ) : StartDestination()
     }
 
     fun determineStartDestination(
@@ -49,7 +53,14 @@ class AppStartHandler (
                 if (query.isEmpty) {
                     onResult(StartDestination.EmailCheck)
                 } else {
-                    onResult(StartDestination.EmailCheckBlocked(context.getString(R.string.device_already_used)))
+                    val doc = query.documents[0]
+                    val userId = doc.id
+                    val email = doc.getString("email") ?: ""
+                    onResult(StartDestination.EmailCheckBlocked(
+                        context.getString(R.string.device_already_used),
+                        userId,
+                        email
+                    ))
                 }
             }
             .addOnFailureListener { e ->

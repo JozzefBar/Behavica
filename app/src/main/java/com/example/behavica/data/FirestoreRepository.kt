@@ -174,6 +174,44 @@ class FirestoreRepository(
             }
     }
 
+    fun saveAuthResult(
+        userId: String,
+        accepted: Boolean,
+        score: Double,
+        email: String,
+        allScores: Map<String, Double>,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val userDoc = db.collection("Users3").document(userId)
+
+        // Count existing auth records to create authentification1, authentification2, ...
+        userDoc.collection("authentification").get()
+            .addOnSuccessListener { snapshot ->
+                val nextNumber = snapshot.size() + 1
+                val authDocId = "authentification$nextNumber"
+
+                val authData = hashMapOf(
+                    "accepted" to accepted,
+                    "score" to score,
+                    "email" to email,
+                    "allScores" to allScores,
+                    "timestamp" to System.currentTimeMillis(),
+                    "createdAt" to FieldValue.serverTimestamp()
+                )
+
+                userDoc.collection("authentification").document(authDocId)
+                    .set(authData)
+                    .addOnSuccessListener { onSuccess() }
+                    .addOnFailureListener { e ->
+                        onError(e.message ?: "Unknown error")
+                    }
+            }
+            .addOnFailureListener { e ->
+                onError(e.message ?: "Unknown error")
+            }
+    }
+
     fun saveSubmission(
         userId: String,
         submissionNumber: Int,

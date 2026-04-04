@@ -41,6 +41,8 @@ class EmailCheckActivity : AppCompatActivity() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var pendingCheck: Runnable? = null
+    private var blockedUserId: String? = null
+    private var blockedEmail: String? = null
     private var emailChecked = false
     private var emailAvailable = false
 
@@ -65,6 +67,8 @@ class EmailCheckActivity : AppCompatActivity() {
                     }
                     is AppStartHandler.StartDestination.EmailCheckBlocked -> {
                         initializeEmailCheckScreen()
+                        blockedUserId = destination.userId
+                        blockedEmail = destination.email
                         showDeviceBlockedError(destination.message)
                     }
                 }
@@ -288,6 +292,20 @@ class EmailCheckActivity : AppCompatActivity() {
     }
 
     private fun goToAuthenticationSubmission() {
+        // If device was blocked, use stored userId/email from DB
+        if (blockedUserId != null) {
+            val intent = Intent(this, SubmissionActivity::class.java).apply {
+                putExtra("userId", blockedUserId)
+                putExtra("userEmail", blockedEmail ?: "")
+                putExtra("submissionNumber", 1)
+                putExtra("isAuthentication", true)
+            }
+            startActivity(intent)
+            finish()
+            return
+        }
+
+        // Otherwise, look up userId by email from input field
         val email = emailInput.text.toString().trim().lowercase()
         progressBar.visibility = View.VISIBLE
         authenticateButton.isEnabled = false

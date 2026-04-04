@@ -266,6 +266,16 @@ class SubmissionActivity : AppCompatActivity() {
                 behavior = behavior,
                 sensorData = sensorCollector.getSensorData(),
                 onResult = { result ->
+                    // Save authentication result to Firestore
+                    repo.saveAuthResult(
+                        userId = userId.orEmpty(),
+                        accepted = result.accepted,
+                        score = result.score,
+                        email = result.email,
+                        allScores = result.allScores,
+                        onSuccess = { },
+                        onError = { }
+                    )
                     runOnUiThread {
                         goToAuthResultScreen(result)
                     }
@@ -337,6 +347,7 @@ class SubmissionActivity : AppCompatActivity() {
             putExtra("score", result.score)
             putExtra("email", result.email)
             putExtra("userId", userId.orEmpty())
+            putExtra("error", result.error)
             // Map cannot be put directly into Intent, so we split it into two arrays
             putExtra("allScores_keys", result.allScores.keys.toTypedArray())
             putExtra("allScores_values", result.allScores.values.toDoubleArray())

@@ -48,6 +48,7 @@ class AuthResultActivity : AppCompatActivity() {
         val score         = intent.getDoubleExtra("score", 0.0)
         val email         = intent.getStringExtra("email") ?: ""
         val currentUserId = intent.getStringExtra("userId") ?: ""
+        val errorMessage  = intent.getStringExtra("error")
         val keys          = intent.getStringArrayExtra("allScores_keys") ?: emptyArray()
         val values        = intent.getDoubleArrayExtra("allScores_values") ?: DoubleArray(0)
 
@@ -68,11 +69,19 @@ class AuthResultActivity : AppCompatActivity() {
             // Red = authentication rejected
             statusCard.setBackgroundColor(0xFFF44336.toInt())
             statusIcon.text = getString(R.string.auth_result_icon_rejected)
-            statusText.text = getString(R.string.auth_result_rejected)
+            statusText.text = if (errorMessage == "user_not_in_model") {
+                getString(R.string.auth_result_user_not_in_model)
+            } else {
+                getString(R.string.auth_result_rejected)
+            }
         }
 
         // ── Details ───────────────────────────────────────────────────────────
-        findViewById<TextView>(R.id.email_value).text = email
+        findViewById<TextView>(R.id.email_value).text = if (email == "unknown") {
+            getString(R.string.auth_result_email_unknown)
+        } else {
+            email
+        }
         // Score as percentage using string resource (avoids setText concatenation warning)
         findViewById<TextView>(R.id.score_value).text =
             getString(R.string.auth_result_score_percent, (score * 100).roundToInt())

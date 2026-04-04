@@ -15,19 +15,17 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 
-/**
- * Sends behavioral data to the Firebase Cloud Function and returns an authentication result.
- *
- * Flow: Android collects raw data → sends JSON POST → Cloud Function extracts features
- *       → runs distance-based model → returns accepted/rejected with score
- */
+//Sends behavioral data to the Firebase Cloud Function and returns an authentication result.
+//Flow: Android collects raw data → sends JSON POST → Cloud Function extracts features
+//       → runs distance-based model → returns accepted/rejected with score
 class AuthApiClient {
 
     data class AuthResult(
         val accepted: Boolean,
         val score: Double,
         val email: String,
-        val allScores: Map<String, Double>
+        val allScores: Map<String, Double>,
+        val error: String?
     )
 
     private val client = OkHttpClient.Builder()
@@ -38,21 +36,13 @@ class AuthApiClient {
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
     private val functionUrl = Config.AUTH_FUNCTION_URL
 
-    /**
-     * Asynchronously sends behavioral data to the Cloud Function.
-     *
-     * @param userId      ID of the user claiming to authenticate
-     * @param behavior    BehaviorTracker with collected submission data
-     * @param sensorData  list of sensor readings from SensorDataCollector
-     * @param onResult    callback called on main thread with the authentication result
-     * @param onError     callback called on network or server error
-     */
+    //Asynchronously sends behavioral data to the Cloud Function.
     fun authenticate(
-        userId: String,
-        behavior: BehaviorTracker,
-        sensorData: List<SensorReading>,
-        onResult: (AuthResult) -> Unit,
-        onError: (String) -> Unit
+        userId: String,                     //ID of the user claiming to authenticate
+        behavior: BehaviorTracker,          //BehaviorTracker with collected submission data
+        sensorData: List<SensorReading>,    //list of sensor readings from SensorDataCollector
+        onResult: (AuthResult) -> Unit,     //callback called on main thread with the authentication result
+        onError: (String) -> Unit           //callback called on network or server error
     ) {
         val json = buildRequestJson(userId, behavior, sensorData)
         val body = json.toString().toRequestBody(jsonMediaType)
@@ -80,7 +70,8 @@ class AuthApiClient {
                         key to allScoresJson.getDouble(key)
                     }
 
-                    onResult(AuthResult(accepted, score, email, allScores))
+                    val error = if (obj.has("error")) obj.getString("error") else null
+                    onResult(AuthResult(accepted, score, email, allScores, error))
                 } catch (e: Exception) {
                     onError("Response parsing error: ${e.message}")
                 }

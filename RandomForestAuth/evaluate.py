@@ -501,12 +501,13 @@ def _fig5_feature_importance(ax, rf_model, feature_names):
 
 def _fig6_per_user_scores(ax, y_true, y_proba, rf_classes, meta):
     """
-    Box plot genuine vs. impostor skóre zvlášť pre každého používateľa (RF).
+    Violin plot genuine vs. impostor skóre zvlášť pre každého používateľa (RF).
 
     Genuine skóre  = P(u) keď testovací submission naozaj patrí používateľovi u
     Impostor skóre = P(u) keď testovací submission patrí inému používateľovi
 
-    Zelené boxy vpravo (vysoké skóre) a červené vľavo (nízke skóre) = dobrá separácia.
+    Tvar violin ukazuje hustotu rozdelenia skóre – širšia časť = viac hodnôt
+    v danej oblasti. Box plot vnútri ukazuje medián a kvartily.
     """
     unique_users = rf_classes
     email_map    = dict(zip(meta["userId"], meta["email"]))
@@ -524,19 +525,25 @@ def _fig6_per_user_scores(ax, y_true, y_proba, rf_classes, meta):
     positions_g = np.arange(len(unique_users)) * 2.5
     positions_i = positions_g + 0.9
 
-    bp1 = ax.boxplot(data_genuine, positions=positions_g, widths=0.7,
-                     patch_artist=True, medianprops={"color": "black", "lw": 2},
-                     flierprops={"marker": "o", "markerfacecolor": COLORS["genuine"],
-                                 "markeredgecolor": COLORS["genuine"], "markersize": 3})
-    for patch in bp1["boxes"]:
-        patch.set_facecolor(COLORS["genuine"]); patch.set_alpha(0.75)
+    # ── Genuine violin (zelený) ──
+    vp1 = ax.violinplot(data_genuine, positions=positions_g, widths=0.7,
+                        showmeans=False, showmedians=True, showextrema=False)
+    for body in vp1["bodies"]:
+        body.set_facecolor(COLORS["genuine"])
+        body.set_edgecolor(COLORS["genuine"])
+        body.set_alpha(0.65)
+    vp1["cmedians"].set_color("black")
+    vp1["cmedians"].set_linewidth(2)
 
-    bp2 = ax.boxplot(data_impostor, positions=positions_i, widths=0.7,
-                     patch_artist=True, medianprops={"color": "black", "lw": 2},
-                     flierprops={"marker": "o", "markerfacecolor": COLORS["impostor"],
-                                 "markeredgecolor": COLORS["impostor"], "markersize": 3})
-    for patch in bp2["boxes"]:
-        patch.set_facecolor(COLORS["impostor"]); patch.set_alpha(0.75)
+    # ── Impostor violin (červený) ──
+    vp2 = ax.violinplot(data_impostor, positions=positions_i, widths=0.7,
+                        showmeans=False, showmedians=True, showextrema=False)
+    for body in vp2["bodies"]:
+        body.set_facecolor(COLORS["impostor"])
+        body.set_edgecolor(COLORS["impostor"])
+        body.set_alpha(0.65)
+    vp2["cmedians"].set_color("black")
+    vp2["cmedians"].set_linewidth(2)
 
     tick_pos = positions_g + 0.45
     ax.set_xticks(tick_pos)
@@ -546,8 +553,8 @@ def _fig6_per_user_scores(ax, y_true, y_proba, rf_classes, meta):
 
     from matplotlib.patches import Patch
     ax.legend(handles=[
-        Patch(facecolor=COLORS["genuine"],  alpha=0.75, label="Genuine (vlastný submission)"),
-        Patch(facecolor=COLORS["impostor"], alpha=0.75, label="Impostor (cudzí submission)"),
+        Patch(facecolor=COLORS["genuine"],  alpha=0.65, label="Genuine (vlastný submission)"),
+        Patch(facecolor=COLORS["impostor"], alpha=0.65, label="Impostor (cudzí submission)"),
     ], fontsize=8)
 
 
