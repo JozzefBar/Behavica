@@ -1,4 +1,3 @@
-// MetadataValidator.kt
 package com.example.behavica.validation
 
 import android.widget.Spinner

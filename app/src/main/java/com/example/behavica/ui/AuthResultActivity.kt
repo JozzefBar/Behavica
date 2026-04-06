@@ -48,6 +48,7 @@ class AuthResultActivity : AppCompatActivity() {
         val score         = intent.getDoubleExtra("score", 0.0)
         val email         = intent.getStringExtra("email") ?: ""
         val currentUserId = intent.getStringExtra("userId") ?: ""
+        val eerThreshold  = intent.getDoubleExtra("eerThreshold", 0.0)
         val errorMessage  = intent.getStringExtra("error")
         val keys          = intent.getStringArrayExtra("allScores_keys") ?: emptyArray()
         val values        = intent.getDoubleArrayExtra("allScores_values") ?: DoubleArray(0)
@@ -85,12 +86,14 @@ class AuthResultActivity : AppCompatActivity() {
         // Score as percentage using string resource (avoids setText concatenation warning)
         findViewById<TextView>(R.id.score_value).text =
             getString(R.string.auth_result_score_percent, (score * 100).roundToInt())
+        findViewById<TextView>(R.id.eer_value).text =
+            getString(R.string.auth_result_eer_percent, (eerThreshold * 100).roundToInt())
 
         // ── Scores table for all users ────────────────────────────────────────
         val colorPrimary  = ContextCompat.getColor(this, R.color.colorPrimary)
         val colorText     = ContextCompat.getColor(this, R.color.textColorPrimary)
-        val colorRowAlt   = 0xFFF9F9F9.toInt()
-        val colorRankText = 0xFF888888.toInt()
+        val colorRowAlt   = ContextCompat.getColor(this, R.color.rowAlternate)
+        val colorRankText = ContextCompat.getColor(this, R.color.rankText)
 
         val container = findViewById<LinearLayout>(R.id.scores_container)
         allScores.forEachIndexed { index, (userId, userScore) ->

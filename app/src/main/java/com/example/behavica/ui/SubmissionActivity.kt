@@ -261,6 +261,10 @@ class SubmissionActivity : AppCompatActivity() {
             submitButton.text = getString(R.string.saving)
             authProcessingNote.visibility = View.VISIBLE
 
+            // Stop sensors on submit – data is already collected,
+            // no need to drain battery while waiting for server response
+            sensorCollector.stop()
+
             authApi.authenticate(
                 userId = userId.orEmpty(),
                 submissionDurationSec = behavior.getSubmissionDurationSec(),
@@ -356,6 +360,7 @@ class SubmissionActivity : AppCompatActivity() {
             putExtra("score", result.score)
             putExtra("email", result.email)
             putExtra("userId", userId.orEmpty())
+            putExtra("eerThreshold", result.eerThreshold)
             putExtra("error", result.error)
             // Map cannot be put directly into Intent, so we split it into two arrays
             putExtra("allScores_keys", result.allScores.keys.toTypedArray())

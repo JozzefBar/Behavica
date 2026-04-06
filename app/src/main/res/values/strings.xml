@@ -89,6 +89,8 @@
     <string name="auth_result_rank">#%1$d</string>
     <string name="auth_result_email_label">Email</string>
     <string name="auth_result_score_label">Your score</string>
+    <string name="auth_result_eer_label">EER threshold</string>
+    <string name="auth_result_eer_percent">%1$d%%</string>
     <string name="auth_result_all_scores_label">Comparison with all users:</string>
     <string name="auth_result_user_not_in_model">User is not in the model</string>
     <string name="auth_result_email_unknown">unknown</string>

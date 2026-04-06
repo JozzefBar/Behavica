@@ -24,6 +24,7 @@ class AuthApiClient {
         val score: Double,
         val email: String,
         val allScores: Map<String, Double>,
+        val eerThreshold: Double,
         val error: String?
     )
 
@@ -34,6 +35,12 @@ class AuthApiClient {
         .build()
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
     private val functionUrl = Config.AUTH_FUNCTION_URL
+
+    // Max retry attempts for 502/503 errors (Cloud Function cold start)
+    private val maxRetries = 3
+    // Initial delay between retries in ms – doubles with each attempt (exponential backoff)
+    // Cold start takes 20-30s (sklearn + pandas + model.pkl), so start at 5s → 5s, 10s, 20s
+    private val initialRetryDelayMs = 5000L
 
     //Asynchronously sends behavioral data to the Cloud Function.
     fun authenticate(
@@ -57,25 +64,54 @@ class AuthApiClient {
             dragDurationSec, textRewriteTime, averageWordTime, textEditCount,
             touchPoints, keystrokes, sensorData
         )
-        val body = json.toString().toRequestBody(jsonMediaType)
+        val jsonString = json.toString()
+
+        executeWithRetry(jsonString, 0, onResult, onError)
+    }
+
+    // Retry logic for 502/503 errors – Cloud Function needs cold start
+    // and the first request may fail while the instance is spinning up
+    private fun executeWithRetry(
+        jsonString: String,
+        attempt: Int,
+        onResult: (AuthResult) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val body = jsonString.toRequestBody(jsonMediaType)
         val request = Request.Builder().url(functionUrl).post(body).build()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                onError("Network error: ${e.message}")
+                if (attempt < maxRetries) {
+                    val delay = initialRetryDelayMs * (1L shl attempt)
+                    Thread.sleep(delay)
+                    executeWithRetry(jsonString, attempt + 1, onResult, onError)
+                } else {
+                    onError("Network error: ${e.message}")
+                }
             }
 
             override fun onResponse(call: Call, response: Response) {
                 val bodyStr = response.body?.string()
+
+                // 502/503 = Cloud Function cold start or overload → retry
+                if (response.code in listOf(502, 503) && attempt < maxRetries) {
+                    val delay = initialRetryDelayMs * (1L shl attempt)
+                    Thread.sleep(delay)
+                    executeWithRetry(jsonString, attempt + 1, onResult, onError)
+                    return
+                }
+
                 if (!response.isSuccessful || bodyStr == null) {
                     onError("Server error: ${response.code}")
                     return
                 }
                 try {
-                    val obj      = JSONObject(bodyStr)
-                    val accepted = obj.getBoolean("accepted")
-                    val score    = obj.getDouble("score")
-                    val email    = obj.getString("email")
+                    val obj          = JSONObject(bodyStr)
+                    val accepted     = obj.getBoolean("accepted")
+                    val score        = obj.getDouble("score")
+                    val email        = obj.getString("email")
+                    val eerThreshold = obj.optDouble("eerThreshold", 0.0)
 
                     val allScoresJson = obj.getJSONObject("allScores")
                     val allScores = allScoresJson.keys().asSequence().associate { key ->
@@ -83,7 +119,7 @@ class AuthApiClient {
                     }
 
                     val error = if (obj.has("error")) obj.getString("error") else null
-                    onResult(AuthResult(accepted, score, email, allScores, error))
+                    onResult(AuthResult(accepted, score, email, allScores, eerThreshold, error))
                 } catch (e: Exception) {
                     onError("Response parsing error: ${e.message}")
                 }

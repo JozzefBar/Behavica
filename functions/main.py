@@ -23,8 +23,15 @@ from firebase_functions.options import set_global_options
 
 initialize_app()
 
-# Maximálny počet súbežných inštancií – pre výskumný projekt stačí 5
-set_global_options(max_instances=5)
+# Cloud Function config:
+#   memory=512MB  – sklearn + pandas + numpy + 10MB model.pkl need more than default 256MB
+#   timeout=120s  – cold start can take 20-30s, leave headroom for processing
+#   max_instances=5 – enough for a research project
+set_global_options(
+    max_instances=5,
+    memory=512,
+    timeout_sec=120,
+)
 
 # ── Model sa načíta raz pri cold starte, nie pri každom volaní ────────────────
 _model = None
@@ -402,12 +409,13 @@ def authenticate(req: https_fn.Request) -> https_fn.Response:
     accepted = bool(best_user == str(claimed_user_id) and claimed_score >= eer_threshold)
 
     result = {
-        "accepted":  accepted,
-        "score":     round(claimed_score, 4),
-        "userId":    claimed_user_id,
-        "email":     email_map.get(str(claimed_user_id), "neznámy"),
-        # Všetky skóre – pre debugovanie / vizualizáciu na Android strane
-        "allScores": {str(uid): round(float(s), 4) for uid, s in scores.items()},
+        "accepted":     accepted,
+        "score":        round(claimed_score, 4),
+        "userId":       claimed_user_id,
+        "email":        email_map.get(str(claimed_user_id), "neznámy"),
+        "eerThreshold": round(eer_threshold, 4),
+        # All scores – for debugging / visualization on Android side
+        "allScores":    {str(uid): round(float(s), 4) for uid, s in scores.items()},
     }
 
     return https_fn.Response(

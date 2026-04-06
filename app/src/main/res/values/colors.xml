@@ -9,4 +9,9 @@
     <color name="borderColor">#E0E0E0</color>
 
     <color name="textColorPrimary">#212121</color>
+
+    <color name="textColorSecondary">#666666</color>
+    <color name="surfaceColor">#F2F2F2</color>
+    <color name="rowAlternate">#F9F9F9</color>
+    <color name="rankText">#888888</color>
 </resources>

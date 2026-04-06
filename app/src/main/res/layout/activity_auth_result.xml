@@ -3,7 +3,7 @@
     android:id="@+id/auth_result_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F2F2F2"
+    android:background="@color/surfaceColor"
     android:fillViewport="true">
 
     <LinearLayout
@@ -66,7 +66,7 @@
                     android:layout_weight="1"
                     android:text="@string/auth_result_email_label"
                     android:textStyle="bold"
-                    android:textColor="#666666"
+                    android:textColor="@color/textColorSecondary"
                     android:textSize="15sp" />
 
                 <TextView
@@ -98,11 +98,44 @@
                     android:layout_weight="1"
                     android:text="@string/auth_result_score_label"
                     android:textStyle="bold"
-                    android:textColor="#666666"
+                    android:textColor="@color/textColorSecondary"
                     android:textSize="15sp" />
 
                 <TextView
                     android:id="@+id/score_value"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="2"
+                    android:gravity="end"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/textColorPrimary" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/borderColor" />
+
+            <!-- Row: EER Threshold -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/auth_result_eer_label"
+                    android:textStyle="bold"
+                    android:textColor="@color/textColorSecondary"
+                    android:textSize="15sp" />
+
+                <TextView
+                    android:id="@+id/eer_value"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="2"
@@ -121,7 +154,7 @@
             android:text="@string/auth_result_all_scores_label"
             android:textSize="15sp"
             android:textStyle="bold"
-            android:textColor="#666666"
+            android:textColor="@color/textColorSecondary"
             android:layout_marginBottom="8dp" />
 
         <!-- Scores table, populated dynamically from Kotlin code -->

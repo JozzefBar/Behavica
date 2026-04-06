@@ -90,6 +90,8 @@
     <string name="auth_result_rank">#%1$d</string>
     <string name="auth_result_email_label">Email</string>
     <string name="auth_result_score_label">Vaše skóre</string>
+    <string name="auth_result_eer_label">EER prah</string>
+    <string name="auth_result_eer_percent">%1$d%%</string>
     <string name="auth_result_all_scores_label">Porovnanie so všetkými používateľmi:</string>
     <string name="auth_result_user_not_in_model">Používateľ nie je v modeli</string>
     <string name="auth_result_email_unknown">neznámy</string>
