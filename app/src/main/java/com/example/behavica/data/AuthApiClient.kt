@@ -1,6 +1,5 @@
 package com.example.behavica.data
 
-import com.example.behavica.logging.BehaviorTracker
 import com.example.behavica.model.SensorReading
 import com.example.behavica.model.TouchPoint
 import okhttp3.Call
@@ -38,13 +37,26 @@ class AuthApiClient {
 
     //Asynchronously sends behavioral data to the Cloud Function.
     fun authenticate(
-        userId: String,                     //ID of the user claiming to authenticate
-        behavior: BehaviorTracker,          //BehaviorTracker with collected submission data
-        sensorData: List<SensorReading>,    //list of sensor readings from SensorDataCollector
-        onResult: (AuthResult) -> Unit,     //callback called on main thread with the authentication result
-        onError: (String) -> Unit           //callback called on network or server error
+        userId: String,
+        submissionDurationSec: Double,
+        dragAttempts: Int,
+        dragDistance: Float,
+        dragPathLength: Float,
+        dragDurationSec: Double,
+        textRewriteTime: Double,
+        averageWordTime: Double,
+        textEditCount: Int,
+        touchPoints: List<TouchPoint>,
+        keystrokes: List<Map<String, Any>>,
+        sensorData: List<SensorReading>,
+        onResult: (AuthResult) -> Unit,
+        onError: (String) -> Unit
     ) {
-        val json = buildRequestJson(userId, behavior, sensorData)
+        val json = buildRequestJson(
+            userId, submissionDurationSec, dragAttempts, dragDistance, dragPathLength,
+            dragDurationSec, textRewriteTime, averageWordTime, textEditCount,
+            touchPoints, keystrokes, sensorData
+        )
         val body = json.toString().toRequestBody(jsonMediaType)
         val request = Request.Builder().url(functionUrl).post(body).build()
 
@@ -83,33 +95,54 @@ class AuthApiClient {
 
     private fun buildRequestJson(
         userId: String,
-        behavior: BehaviorTracker,
+        submissionDurationSec: Double,
+        dragAttempts: Int,
+        dragDistance: Float,
+        dragPathLength: Float,
+        dragDurationSec: Double,
+        textRewriteTime: Double,
+        averageWordTime: Double,
+        textEditCount: Int,
+        touchPoints: List<TouchPoint>,
+        keystrokes: List<Map<String, Any>>,
         sensorData: List<SensorReading>
     ): JSONObject {
         return JSONObject().apply {
             put("userId",      userId)
-            put("basic",       buildBasicJson(behavior, sensorData))
-            put("touchPoints", buildTouchPointsJson(behavior.getTouchPoints()))
-            put("keystrokes",  buildKeystrokesJson(behavior.getKeystrokes()))
+            put("basic",       buildBasicJson(
+                submissionDurationSec, dragAttempts, dragDistance, dragPathLength,
+                dragDurationSec, textRewriteTime, averageWordTime, textEditCount,
+                touchPoints.size, sensorData.size
+            ))
+            put("touchPoints", buildTouchPointsJson(touchPoints))
+            put("keystrokes",  buildKeystrokesJson(keystrokes))
             put("sensorData",  buildSensorDataJson(sensorData))
         }
     }
 
     private fun buildBasicJson(
-        behavior: BehaviorTracker,
-        sensorData: List<SensorReading>
+        submissionDurationSec: Double,
+        dragAttempts: Int,
+        dragDistance: Float,
+        dragPathLength: Float,
+        dragDurationSec: Double,
+        textRewriteTime: Double,
+        averageWordTime: Double,
+        textEditCount: Int,
+        touchPointsCount: Int,
+        sensorDataCount: Int
     ): JSONObject {
         return JSONObject().apply {
-            put("submissionDurationSec", behavior.getSubmissionDurationSec())
-            put("dragAttempts",          behavior.dragAttempts)
-            put("dragDistance",          behavior.dragDistance)
-            put("dragPathLength",        behavior.dragPathLength)
-            put("dragDurationSec",       behavior.getDragDurationSec())
-            put("textRewriteTime",       behavior.getTextRewriteTime())
-            put("averageWordTime",       behavior.getAverageWordCompletionTime())
-            put("textEditCount",         behavior.textEditCount)
-            put("touchPointsCount",      behavior.getTouchPoints().size)
-            put("sensorDataCount",       sensorData.size)
+            put("submissionDurationSec", submissionDurationSec)
+            put("dragAttempts",          dragAttempts)
+            put("dragDistance",          dragDistance)
+            put("dragPathLength",        dragPathLength)
+            put("dragDurationSec",       dragDurationSec)
+            put("textRewriteTime",       textRewriteTime)
+            put("averageWordTime",       averageWordTime)
+            put("textEditCount",         textEditCount)
+            put("touchPointsCount",      touchPointsCount)
+            put("sensorDataCount",       sensorDataCount)
         }
     }
 

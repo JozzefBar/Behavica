@@ -116,9 +116,7 @@ class MetadataActivity : AppCompatActivity() {
 
     private fun setupSaveButton() {
         saveButton.setOnClickListener {
-            val validationResult = validator.validateMetadata(userAgeInput.text.toString().trim())
-
-            if (validationResult.isValid) {
+            if (validator.validateMetadata(userAgeInput.text.toString().trim())) {
                 saveButton.isEnabled = false
                 saveButton.text = getString(R.string.saving)
                 repo.ensureAnonAuth(
@@ -129,8 +127,6 @@ class MetadataActivity : AppCompatActivity() {
                         saveButton.text = getString(R.string.save_continue)
                     }
                 )
-            } else {
-                Toast.makeText(this, validationResult.errorMessage, Toast.LENGTH_LONG).show()
             }
         }
     }

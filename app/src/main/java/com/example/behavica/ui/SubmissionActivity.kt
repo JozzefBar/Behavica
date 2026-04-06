@@ -263,7 +263,16 @@ class SubmissionActivity : AppCompatActivity() {
 
             authApi.authenticate(
                 userId = userId.orEmpty(),
-                behavior = behavior,
+                submissionDurationSec = behavior.getSubmissionDurationSec(),
+                dragAttempts = behavior.dragAttempts,
+                dragDistance = behavior.dragDistance,
+                dragPathLength = behavior.dragPathLength,
+                dragDurationSec = behavior.getDragDurationSec(),
+                textRewriteTime = behavior.getTextRewriteTime(),
+                averageWordTime = behavior.getAverageWordCompletionTime(),
+                textEditCount = behavior.textEditCount,
+                touchPoints = behavior.getTouchPoints(),
+                keystrokes = behavior.getKeystrokes(),
                 sensorData = sensorCollector.getSensorData(),
                 onResult = { result ->
                     // Save authentication result to Firestore
