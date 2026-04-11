@@ -13,3 +13,4 @@ functions/model.pkl
 
 RandomForestAuth/*.csv
 RandomForestAuth/ablation_csvs
+RandomForestAuth/evaluate_log.txt

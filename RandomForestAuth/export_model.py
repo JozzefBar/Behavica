@@ -73,7 +73,9 @@ def export():
     # Používame "_" pre hodnoty ktoré nepotrebujeme (konvencia v Pythone)
     print("Spúšťam 5-Fold CV a trénujem finálny model (môže chvíľu trvať)...")
     # FIX 3: run_rf_cv teraz vracia 7 hodnôt – pridaný eer_threshold
-    _, _, _, _, rf_model, final_scaler, eer_threshold = run_rf_cv(X_raw, y)
+    y_true, y_pred, _, _, rf_model, final_scaler, eer_threshold = run_rf_cv(X_raw, y)
+    import numpy as np
+    cv_acc = float(np.mean(y_true == y_pred))
 
     email_map = dict(zip(meta["userId"], meta["email"]))
 
@@ -91,12 +93,33 @@ def export():
     with open(OUTPUT_PATH, "wb") as f:
         pickle.dump(model_data, f)
 
-    print(f"\nModel uložený: {OUTPUT_PATH}")
-    print(f"Triedy v modeli: {list(rf_model.classes_)}")
-    print(f"Príznakov: {len(feature_cols)}")
-    print("\nHotovo. Teraz spusti:")
-    print("  cd ..")
-    print("  firebase deploy --only functions")
+    n_samples = len(X_raw)
+    n_users = len(rf_model.classes_)
+    fold_train = int(n_samples * 0.8)
+    fold_test = n_samples - fold_train
+
+    print(f"\n{'='*60}")
+    print(f"  MODEL EXPORTOVANÝ")
+    print(f"{'='*60}")
+    print(f"  Súbor:            {OUTPUT_PATH}")
+    print(f"  Používatelia:     {n_users}")
+    print(f"  Príznakov:        {len(feature_cols)}")
+    print(f"")
+    print(f"  Finálny model:    trénovaný na VŠETKÝCH {n_samples} submissionoch")
+    print(f"                    (tento ide do produkcie)")
+    print(f"")
+    print(f"  5-Fold CV:        5x tréning na ~{fold_train} / test na ~{fold_test} submissionoch")
+    print(f"                    (slúži len na výpočet metrík a EER prahu)")
+    print(f"  CV presnosť:      {cv_acc*100:.1f}%")
+    print(f"  EER threshold:    {eer_threshold*100:.2f}%  (prah z CV kde FAR = FRR)")
+    print(f"{'='*56}")
+    print(f"\n  Registrovaní používatelia:")
+    for uid in rf_model.classes_:
+        email = email_map.get(uid, email_map.get(str(uid), "?"))
+        print(f"    {int(uid):>6d}  {email}")
+    print(f"\n  Teraz spusti:")
+    print(f"    cd ..")
+    print(f"    firebase deploy --only functions")
 
 
 if __name__ == "__main__":
