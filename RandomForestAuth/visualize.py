@@ -72,7 +72,7 @@ def _plot_tar_far_frr(ax, metrics):
     ax.plot(t, metrics["FAR"], color=COLORS["far"], lw=2, label="FAR (False Accept Rate)")
     ax.plot(t, metrics["FRR"], color=COLORS["frr"], lw=2, label="FRR (False Reject Rate)", ls="--")
     ax.axvline(metrics["EER_threshold"], color=COLORS["eer"], lw=1.5, ls=":",
-               label=f"EER = {metrics['EER']*100:.1f}%  (prah={metrics['EER_threshold']:.3f})")
+               label=f"EER = {metrics['EER']*100:.2f}%  (prah={metrics['EER_threshold']:.3f})")
     ax.set_title("TAR / FAR / FRR vs. prah", fontweight="bold")
     ax.set_xlabel("Prah rozhodovania")
     ax.set_ylabel("Miera  (0 – 1)")
@@ -93,7 +93,7 @@ def _plot_roc(ax, metrics):
     ax.plot(metrics["FAR"][idx], metrics["TAR"][idx], color=COLORS["rf"], lw=2,
             label=f"Random Forest (AUC={metrics['AUC']:.3f})")
     ax.plot(metrics["EER"], 1 - metrics["EER"], "o", color=COLORS["rf"], ms=9,
-            label=f"EER = {metrics['EER']*100:.1f}%")
+            label=f"EER = {metrics['EER']*100:.2f}%")
     ax.plot([0, 1], [0, 1], "k--", lw=1, alpha=0.4, label="Náhodný klasifikátor (AUC=0.5)")
     ax.set_xlabel("FAR – False Accept Rate")
     ax.set_ylabel("TAR – True Accept Rate")
@@ -119,7 +119,7 @@ def _plot_confusion(ax, y_true, y_pred, classes, email_map, eval_name=""):
            ylabel="Skutočný používateľ", xlabel="Predikovaný používateľ")
     ax.set_yticklabels(labels, fontsize=7)
     ax.set_xticklabels(labels, rotation=90, ha="center", fontsize=7)
-    title = f"Confusion Matrix ({eval_name})" if eval_name else "Confusion Matrix"
+    title = f"Konfúzna matica ({eval_name})" if eval_name else "Konfúzna matica"
     ax.set_title(title, fontweight="bold")
 
     thresh = cm.max() / 2.0
@@ -218,7 +218,7 @@ def visualize_eval(metrics, genuine, impostor,
     n_users = len(rf_classes)
     fig2_size = max(10, n_users * 0.45 + 3)
     fig2    = plt.figure(figsize=(fig2_size, fig2_size))
-    fig2.suptitle(f"Behavica – {eval_name}: Confusion Matrix{title_sfx}",
+    fig2.suptitle(f"Behavica – {eval_name}: Konfúzna matica{title_sfx}",
                   fontsize=14, fontweight="bold", y=0.99)
     ax2 = fig2.add_subplot(1, 1, 1)
     _plot_confusion(ax2, y_true, y_pred, rf_classes, email_map, eval_name)
@@ -260,7 +260,7 @@ def plot_feature_importance(rf_model, feature_names, csv_label: str = "",
     n_feat = len(feature_names)
     fig_h  = max(8, n_feat * 0.28 + 2)
     fig    = plt.figure(figsize=(10, fig_h))
-    fig.suptitle(f"Behavica – RF Feature Importance{title_sfx}",
+    fig.suptitle(f"Behavica – Dôležitosť príznakov{title_sfx}",
                  fontsize=14, fontweight="bold", y=0.98)
     ax = fig.add_subplot(1, 1, 1)
 
@@ -276,7 +276,7 @@ def plot_feature_importance(rf_model, feature_names, csv_label: str = "",
                 f"{w:.2f}%", va="center", ha="left", fontsize=6)
 
     ax.set_xlabel("Dôležitosť (%)")
-    ax.set_title(f"Všetky príznaky ({len(idx)}) – RF Feature Importance",
+    ax.set_title(f"Všetky príznaky ({len(idx)}) – Dôležitosť príznakov",
                  fontweight="bold")
     ax.legend(handles=[
         Patch(facecolor="#e74c3c", label="Senzory (akcelerometer, gyroskop)"),

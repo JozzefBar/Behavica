@@ -2,6 +2,7 @@
 /app/google-services.json
 /app/src/main/java/com/example/behavica/data/Config.kt
 /BehavicaExport
+/details
 
 # Python
 RandomForestAuth/__pycache__/

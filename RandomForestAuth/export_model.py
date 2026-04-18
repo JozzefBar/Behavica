@@ -5,14 +5,15 @@ Natrénuje Random Forest model na existujúcich dátach a uloží ho do
 functions/model.pkl, odkiaľ ho Firebase Cloud Function načíta pri štarte.
 
 Čo sa uloží do model.pkl:
-  - scaler       : finálny StandardScaler (natrénovaný na všetkých dátach)
   - rf           : finálny RandomForestClassifier (natrénovaný na všetkých dátach)
   - feature_cols : presný zoznam a poradie features (musí sa zhodovať s Cloud Function)
   - email_map    : {userId: email} – pre čitateľné výstupy
+  - eer_threshold: EER prah z CV (kde FAR = FRR)
+  - feature_medians: mediány príznakov pre NaN imputáciu
 
 Dôležité:
   run_rf_cv() robí dve veci naraz:
-    1. Stratified 5-Fold CV → férové metriky (každý fold má vlastný scaler bez data leakage)
+    1. Stratified 5-Fold CV → férové metriky
     2. Finálny model → natrénovaný na VŠETKÝCH dátach (tento sa exportuje)
 
   Exportujeme finálny model z run_rf_cv – nie nový samostatný model.
@@ -45,15 +46,19 @@ def export():
     print("Načítavam dáta z CSV...")
     basic, tp, ks, sd, meta = load_all()
 
+    # Odstránime 1. submission PRED extrakciou príznakov – rovnako ako v extract_features.py
+    # Tým sa submission 1 nepremietne ani do mediánov ani do žiadnych štatistík.
+    basic = basic[basic["submissionNumber"] != 1].reset_index(drop=True)
+    tp    = tp[tp["submissionNumber"] != 1].reset_index(drop=True)
+    ks    = ks[ks["submissionNumber"] != 1].reset_index(drop=True)
+    sd    = sd[sd["submissionNumber"] != 1].reset_index(drop=True)
+
     print("Extrahujem príznaky...")
     tp_feat = extract_touch_features(tp)
     ks_feat = extract_keystroke_features(ks)
     sd_feat = extract_sensor_features(sd)
     # FIX 5: build_feature_matrix teraz vracia (df, medians_dict) – mediány exportujeme do model.pkl
     df, feature_medians = build_feature_matrix(basic, tp_feat, ks_feat, sd_feat)
-
-    # Odstránime 1. submission každého používateľa – rovnako ako v evaluate.py
-    df = df[df["submissionNumber"] != 1].reset_index(drop=True)
 
     # Stĺpce príznakov v presnom poradí – toto poradie musí Cloud Function dodržať
     feature_cols = [c for c in df.columns if c not in ["userId", "submissionNumber"]]
@@ -68,12 +73,11 @@ def export():
     #   y_true, y_pred, y_proba  → CV výsledky pre metriky (tu ich nepotrebujeme)
     #   rf_classes               → poradie tried (tu nepotrebujeme)
     #   rf_model                 → finálny RF natrénovaný na VŠETKÝCH dátach ← exportujeme
-    #   final_scaler             → finálny scaler natrénovaný na VŠETKÝCH dátach ← exportujeme
+    #   eer_threshold            → EER prah z CV ← exportujeme
     #
     # Používame "_" pre hodnoty ktoré nepotrebujeme (konvencia v Pythone)
     print("Spúšťam 5-Fold CV a trénujem finálny model (môže chvíľu trvať)...")
-    # FIX 3: run_rf_cv teraz vracia 7 hodnôt – pridaný eer_threshold
-    y_true, y_pred, _, _, rf_model, final_scaler, eer_threshold = run_rf_cv(X_raw, y)
+    y_true, y_pred, _, _, rf_model, eer_threshold = run_rf_cv(X_raw, y)
     import numpy as np
     cv_acc = float(np.mean(y_true == y_pred))
 
@@ -81,12 +85,11 @@ def export():
 
     # ── Uložíme všetko potrebné pre Cloud Function
     model_data = {
-        "scaler":           final_scaler,     # StandardScaler – rovnaký ako v evaluate.py
         "rf":               rf_model,         # RandomForestClassifier – rovnaký ako v evaluate.py
         "feature_cols":     feature_cols,     # presné poradie features – kľúčové pre správnu predikciu
         "email_map":        email_map,        # {userId: email} – pre výpis výsledkov
-        "eer_threshold":    eer_threshold,    # FIX 3: EER prah z CV – nahrádza hardcoded 0.5 v main.py
-        "feature_medians":  feature_medians,  # FIX 5: mediány príznakov – nahrádza fillna(0) v main.py
+        "eer_threshold":    eer_threshold,    # EER prah z CV – nahrádza hardcoded 0.5 v main.py
+        "feature_medians":  feature_medians,  # mediány príznakov – nahrádza fillna(0) v main.py
     }
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)

@@ -4,10 +4,9 @@ Behavica – Extrakcia príznakov a generovanie CSV variantov
 
 Čo tento skript robí:
   1. Načíta surové dáta z 5 CSV súborov (BehavicaExport/).
-  2. Extrahuje behaviorálne príznaky (touch, keystroke, sensor, základné).
-  3. Odstráni 1. submission každého používateľa (učiaci/tréningový pokus).
-  4. Uloží kompletný features_extracted.csv (všetky príznaky).
-  5. Uloží varianty CSV pre ablation study do ablation_csvs/:
+  2. Odstráni 1. submission každého používateľa (učiaci/tréningový pokus).
+  3. Extrahuje behaviorálne príznaky (touch, keystroke, sensor, základné).
+  4. Uloží varianty CSV pre ablation study do ablation_csvs/:
        vsetky_priznaky.csv, len_senzory.csv, len_touch_points.csv, ...
 
 Ako spustiť:
@@ -331,7 +330,7 @@ def build_feature_matrix(basic, tp_feat, ks_feat, sd_feat) -> pd.DataFrame:
         df = df.merge(feat_df, on=["userId", "submissionNumber"], how="left")
 
     # FIX 5: Namiesto fillna(0) použijeme mediány – 0 je pre niektoré príznaky
-    # nereálna hodnota (napr. tp_pressure_mean=0 by zmiatol scaler aj model)
+    # nereálna hodnota (napr. tp_pressure_mean=0 by zmiatol model)
     feat_cols     = [c for c in df.columns if c not in ["userId", "submissionNumber"]]
     medians       = df[feat_cols].median()           # ignoruje NaN pri výpočte
     df[feat_cols] = df[feat_cols].fillna(medians)    # NaN → mediánová hodnota stĺpca
@@ -353,11 +352,11 @@ def get_ablation_combos(all_cols: list) -> list:
     pomocou evaluate.py.
 
     Skupiny príznakov podľa zdrojového CSV:
-      sd_*  → sensor_data.csv        (akcelerometer + gyroskop)
-      tp_*  → touch_points.csv       (dotykové body)
-      ks_*  → keystrokes.csv         (klávesnicové udalosti)
-      drag* → submissions_basic.csv  (drag metriky)
-      ostatné → submissions_basic.csv (základné časové metriky)
+      sd_*      → sensor_data.csv        (akcelerometer + gyroskop)
+      tp_*      → touch_points.csv       (dotykové body)
+      ks_*      → keystrokes.csv         (klávesnicové udalosti)
+      basic     → submissions_basic.csv  (všetkých 10 agregovaných metrík)
+      drag      → drag-related príznaky  (agregované + dotykové rýchlosti)
     """
     def grp(prefixes):
         """Vyberie stĺpce ktorých názov začína niektorým z prefixov."""
@@ -366,10 +365,13 @@ def get_ablation_combos(all_cols: list) -> list:
     sensor_cols = grp(["sd_"])
     touch_cols  = grp(["tp_"])
     ks_cols     = grp(["ks_"])
-    drag_cols   = grp(["drag"])
-    basic_cols  = grp(["submissionDurationSec", "textRewriteTime",
+    # Všetkých 10 agregovaných metrík z submissions_basic.csv
+    basic_cols  = grp(["submissionDurationSec", "dragAttempts", "dragDistance",
+                        "dragPathLength", "dragDurationSec", "textRewriteTime",
                         "averageWordTime", "textEditCount",
                         "touchPointsCount", "sensorDataCount"])
+    # Všetko súvisiace s drag testom: agregované metriky + dotykové rýchlosti
+    drag_cols   = grp(["drag", "tp_drag_"])
 
     return [
         ("vsetky_priznaky",      all_cols),
@@ -377,11 +379,11 @@ def get_ablation_combos(all_cols: list) -> list:
         ("len_touch_points",      touch_cols),
         ("len_keystrokes",        ks_cols),
         ("len_drag",              drag_cols),
-        ("len_zakladne_metriky",  basic_cols),
+        ("agregovane_metriky",    basic_cols),
         ("senzory_a_touch",       sensor_cols + touch_cols),
         ("senzory_a_keystrokes",  sensor_cols + ks_cols),
         ("touch_a_keystrokes",    touch_cols  + ks_cols),
-        ("bez_senzorov",          touch_cols  + ks_cols + drag_cols + basic_cols),
+        ("bez_senzorov",          [c for c in all_cols if c not in sensor_cols]),
     ]
 
 
@@ -410,8 +412,20 @@ def main():
 def _main_logic():
     print("Načítavam surové dáta z BehavicaExport/ ...")
     basic, tp, ks, sd, meta = load_all()
-    print(f"  → {len(basic)} submissionov načítaných pre "
+    all_count = len(basic)
+    print(f"  → {all_count} submissionov načítaných pre "
           f"{basic['userId'].nunique()} používateľov")
+
+    # Odstránime 1. submission každého používateľa PRED extrakciou príznakov –
+    # slúžil ako "tréningový/učiaci" pokus a jeho vzory nemusia reprezentovať
+    # bežné správanie. Odstraňujeme ho tu, aby sa nepremietol ani do mediánov
+    # ani do žiadnych štatistík (napr. pri NaN imputácii v build_feature_matrix).
+    basic = basic[basic["submissionNumber"] != 1].reset_index(drop=True)
+    tp    = tp[tp["submissionNumber"] != 1].reset_index(drop=True)
+    ks    = ks[ks["submissionNumber"] != 1].reset_index(drop=True)
+    sd    = sd[sd["submissionNumber"] != 1].reset_index(drop=True)
+    print(f"  → Odstránený 1. submission každého používateľa "
+          f"({all_count - len(basic)} záznamov odfiltrovaných)")
 
     print("\nExtrahujem príznaky ...")
     tp_feat = extract_touch_features(tp)
@@ -419,13 +433,6 @@ def _main_logic():
     sd_feat = extract_sensor_features(sd)
     # build_feature_matrix teraz vracia (df, medians_dict) – mediány nepotrebujeme tu
     df, _   = build_feature_matrix(basic, tp_feat, ks_feat, sd_feat)
-
-    # Odstránime 1. submission každého používateľa – slúžil ako "tréningový/učiaci"
-    # pokus a jeho vzory nemusia reprezentovať bežné správanie daného používateľa
-    before = len(df)
-    df = df[df["submissionNumber"] != 1].reset_index(drop=True)
-    print(f"  → Odstránený 1. submission každého používateľa "
-          f"({before - len(df)} záznamov odfiltrovaných)")
 
     feature_cols = [c for c in df.columns if c not in ["userId", "submissionNumber"]]
     print(f"  → Dataset: {len(df)} submissionov | {len(feature_cols)} príznakov "

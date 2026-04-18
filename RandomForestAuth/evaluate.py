@@ -10,7 +10,7 @@ Behavica – Evaluácia behaviorálnej biometrie (Random Forest)
         simuluje reálne nasadenie a dáva realistickejšie výsledky.
   3. Vypočíta biometrické metriky: TAR, FAR, FRR, EER, AUC, Accuracy.
   4. Zobrazí prehľadné tabuľky a demo autentifikácie.
-  5. Vygeneruje 3 figúry s grafmi.
+  5. Vygeneruje 6 figúr s grafmi (2 per evaluácia + 2 feature importance).
 
 Prečo dve evaluácie:
   5-Fold CV náhodne miešavoľa submissiony medzi train/test. Keďže všetkých
@@ -35,7 +35,6 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import StratifiedKFold
 import warnings
 
@@ -179,12 +178,15 @@ def run_rf_cv(X_raw: np.ndarray, y: np.ndarray):
     odhad produkčnej výkonnosti pozri run_temporal_eval().
 
     Pre každý fold:
-      – fituje StandardScaler IBA na tréningových dátach (bez data leakage)
-      – natrénuje RF na škálovaných tréningových dátach
+      – natrénuje RF na tréningových dátach
       – predikuje triedy a pravdepodobnosti pre testovaciu sadu (~20%)
 
-    Na konci natrénuje finálny RF a scaler na VŠETKÝCH dátach
+    Na konci natrénuje finálny RF na VŠETKÝCH dátach
     (pre feature importance, demo autentifikáciu a export).
+
+    Poznámka: StandardScaler bol odstránený – Random Forest je invariantný voči
+    škálovaniu (rozhoduje sa na základe prahov, nie vzdialeností), takže scaler
+    nemal žiadny vplyv na výsledky.
 
     Vracia:
       y_true        – skutočné triedy (userId) testovacích submissionov
@@ -192,7 +194,6 @@ def run_rf_cv(X_raw: np.ndarray, y: np.ndarray):
       y_proba       – matica pravdepodobností [n_samples × n_classes]
       rf_classes    – poradie tried v y_proba
       rf            – finálny RF model (natrénovaný na všetkých dátach)
-      scaler        – finálny scaler (natrénovaný na všetkých dátach)
       eer_threshold – EER prah z CV skóre (exportovaný do model.pkl)
     """
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
@@ -219,13 +220,8 @@ def run_rf_cv(X_raw: np.ndarray, y: np.ndarray):
     total    = 0
 
     for fold_i, (train_idx, test_idx) in enumerate(skf.split(X_raw, y), start=1):
-        X_tr_raw, X_te_raw = X_raw[train_idx], X_raw[test_idx]
-        y_tr, y_te         = y[train_idx],     y[test_idx]
-
-        # Scaler fitovaný IBA na tréningových dátach každého foldu → žiadny data leakage
-        fold_scaler = StandardScaler()
-        X_tr = fold_scaler.fit_transform(X_tr_raw)
-        X_te = fold_scaler.transform(X_te_raw)
+        X_tr, X_te = X_raw[train_idx], X_raw[test_idx]
+        y_tr, y_te = y[train_idx],     y[test_idx]
 
         # Nový RF objekt v každom folde – čistejší kód, žiadne prekrývanie stavu
         fold_rf = RandomForestClassifier(**rf_params)
@@ -258,15 +254,12 @@ def run_rf_cv(X_raw: np.ndarray, y: np.ndarray):
     cv_metrics    = compute_metrics(g_cv, i_cv)
     eer_threshold = cv_metrics["EER_threshold"]
 
-    # Finálny scaler a model natrénované na celých dátach
-    # → slúžia pre feature importance a export do model.pkl
-    final_scaler = StandardScaler()
-    X_all        = final_scaler.fit_transform(X_raw)
-    # Nový RF objekt pre finálny model
+    # Finálny model natrénovaný na celých dátach
+    # → slúži pre feature importance a export do model.pkl
     final_rf = RandomForestClassifier(**rf_params)
-    final_rf.fit(X_all, y)
+    final_rf.fit(X_raw, y)
 
-    return (y_true, y_pred, y_proba, fold_classes, final_rf, final_scaler, eer_threshold)
+    return (y_true, y_pred, y_proba, fold_classes, final_rf, eer_threshold)
 
 
 def rf_verification_scores(y_true, y_proba, rf_classes, top_k=3):
@@ -354,16 +347,11 @@ def run_temporal_eval(df: pd.DataFrame, feature_cols: list):
         random_state=42,
     )
 
-    # Scaler fitovaný IBA na tréningových dátach (žiadny data leakage)
-    scaler = StandardScaler()
-    X_tr = scaler.fit_transform(X_tr_raw)
-    X_te = scaler.transform(X_te_raw)
-
     rf = RandomForestClassifier(**rf_params)
-    rf.fit(X_tr, y_tr)
+    rf.fit(X_tr_raw, y_tr)
 
-    y_pred = rf.predict(X_te)
-    y_proba = rf.predict_proba(X_te)
+    y_pred = rf.predict(X_te_raw)
+    y_proba = rf.predict_proba(X_te_raw)
 
     acc = float(np.mean(y_pred == y_te))
     print(f"  Temporálna identifikačná presnosť: {acc*100:.1f}%\n")
@@ -382,7 +370,6 @@ def run_temporal_eval(df: pd.DataFrame, feature_cols: list):
 
 def authenticate(raw_feature_vector: np.ndarray,
                  rf_model: RandomForestClassifier,
-                 scaler: StandardScaler,
                  email_map: dict,
                  claimed_user_id=None,
                  eer_threshold: float = 0.5) -> dict:
@@ -390,21 +377,18 @@ def authenticate(raw_feature_vector: np.ndarray,
     Autentifikuje jeden submission pomocou natrénovaného Random Forest modelu.
 
     Postup:
-      1. Škáluje vstupný vektor pomocou natrénovaného scaleru.
-      2. RF predikuje pravdepodobnosti pre každého používateľa.
-      3. P(claimed_user) = skóre podobnosti pre verifikáciu.
+      1. RF predikuje pravdepodobnosti pre každého používateľa.
+      2. P(claimed_user) = skóre podobnosti pre verifikáciu.
 
     Parametre:
-      raw_feature_vector  – 1D numpy pole príznakov (neškálovaných)
+      raw_feature_vector  – 1D numpy pole príznakov
       rf_model            – natrénovaný RandomForestClassifier
-      scaler              – natrénovaný StandardScaler (z tréningových dát)
       email_map           – slovník {userId: email} pre čitateľné výstupy
       claimed_user_id     – ak zadaný → verifikácia (1:1)
                             inak       → identifikácia (1:N)
       eer_threshold       – EER prah z CV (rovnaký ako v Cloud Function main.py)
     """
-    x     = scaler.transform(raw_feature_vector.reshape(1, -1))
-    proba = rf_model.predict_proba(x)[0]
+    proba = rf_model.predict_proba(raw_feature_vector.reshape(1, -1))[0]
 
     scores    = {str(c): float(p) for c, p in zip(rf_model.classes_, proba)}
     best_user = max(scores, key=scores.get)
@@ -628,7 +612,7 @@ def _run_evaluation(csv_path: Path, csv_label: str):
     # EVALUÁCIA 1: Stratified 5-Fold CV
     # ══════════════════════════════════════════════════════════════════════════
     print("Spúšťam RF Stratified 5-Fold cross-validáciu ...")
-    y_true, y_pred, y_proba, rf_classes, rf_model, _, eer_threshold = run_rf_cv(X_raw, y)
+    y_true, y_pred, y_proba, rf_classes, rf_model, eer_threshold = run_rf_cv(X_raw, y)
     rf_acc     = float(np.mean(y_true == y_pred))
     g_rf, i_rf = rf_verification_scores(y_true, y_proba, rf_classes)
     m_rf       = compute_metrics(g_rf, i_rf)
@@ -668,9 +652,9 @@ def _run_evaluation(csv_path: Path, csv_label: str):
                    meta, eval_name="Temporálna (train 2–11, test 12–15)",
                    csv_label=csv_label)
 
-    # Figúra 5: Feature importance – finálny model (všetky dáta)
+    # Figúra 5: Feature importance – 5-Fold CV model
     plot_feature_importance(rf_model, feature_cols, csv_label,
-                            title_suffix="(finálny model – všetky dáta)")
+                            title_suffix="(5-Fold CV model)")
 
     # Figúra 6: Feature importance – temporálny model (train sub 2–11)
     plot_feature_importance(t_rf_model, feature_cols, csv_label,

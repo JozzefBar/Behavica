@@ -361,7 +361,6 @@ def authenticate(req: https_fn.Request) -> https_fn.Response:
             status=500, headers=headers, content_type="application/json"
         )
 
-    scaler          = model["scaler"]
     rf              = model["rf"]
     feature_cols    = model["feature_cols"]
     email_map       = {str(k): v for k, v in model["email_map"].items()}
@@ -394,11 +393,8 @@ def authenticate(req: https_fn.Request) -> https_fn.Response:
     raw_vec = _build_feature_vector(basic, touch_feats, ks_feats, sd_feats,
                                     feature_cols, feature_medians)
 
-    # ── Škálovanie: rovnaký scaler ako pri tréningu
-    x_scaled = scaler.transform(raw_vec.reshape(1, -1))
-
     # ── RF predikcia: pravdepodobnosť pre každého používateľa
-    proba   = rf.predict_proba(x_scaled)[0]
+    proba   = rf.predict_proba(raw_vec.reshape(1, -1))[0]
     classes = [str(c) for c in rf.classes_]
     scores  = {cls: float(p) for cls, p in zip(classes, proba)}
 
