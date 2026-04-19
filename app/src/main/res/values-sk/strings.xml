@@ -8,16 +8,17 @@
     <string name="we_will_verify_email">Overíme váš email</string>
     <string name="start_data_logging">Zber dát</string>
     <string name="authenticate">Autentifikácia</string>
-    <string name="timing_note">*Poznámka: <b>Prosím zadajte platný email, ktorý používate a vyplňte metadáta pravdivo.</b> Po zadaní emailu a metadát bude vytvorený záznam o používateľovi v databáze. Vyplňte testy prirodzene. Vaše biometrické dáta budú zaznamenané po každom úspešnom odoslaní dát.*</string>
+    <string name="timing_note">*Poznámka: <b>Prosím, zadajte platný email, ktorý používate, a vyplňte metadáta pravdivo.</b> Po zadaní emailu a metadát bude vytvorený záznam o používateľovi v databáze. Vyplňte testy prirodzene. Vaše biometrické dáta budú zaznamenané po každom úspešnom odoslaní dát.*</string>
 
     <!-- EmailCheckActivity Kotlin -->
     <string name="email_required">Email je povinný</string>
     <string name="invalid_email_format">Neplatný formát emailu</string>
     <string name="checking">Kontrolujem…</string>
     <string name="email_available">✓ Email je dostupný</string>
-    <string name="email_already_registered">Tento email je už registrovaný.\n\nMôžete sa autentifikovať tlačidlom \'Authenticate\' ak ste sa už registrovali.</string>
+    <string name="email_already_registered">Email je registrovaný. Môžete pokračovať v autentifikácii.</string>
+    <string name="logging_phase_closed">Fáza zberu dát sa skončila. Autentifikácie sa môžu zúčastniť iba používatelia, ktorí už zalogovali dáta.</string>
     <string name="error_checking_email">Chyba pri kontrole emailu: %s</string>
-    <string name="please_enter_valid_email">Zadajte prosím platný email</string>
+    <string name="please_enter_valid_email">Zadajte, prosím, platný email</string>
     <string name="auth_failed">Autentifikácia zlyhala: %s</string>
     <string name="generating_id">Generujem ID…</string>
     <string name="error_generic">Chyba: %s</string>
@@ -26,7 +27,7 @@
 
     <!-- MetadataActivity XML -->
     <string name="welcome_to_behavica">Vitajte v Behavica</string>
-    <string name="please_provide_metadata">Prosím poskytnite vaše metadáta</string>
+    <string name="please_provide_metadata">Prosím, poskytnite svoje metadáta</string>
     <string name="user_id_default">ID používateľa: -</string>
     <string name="email_default">Email: -</string>
     <string name="age_hint">Vek</string>
@@ -47,11 +48,11 @@
     <string name="left_handed">Ľavák</string>
     <string name="ambidextrous">Obidve ruky</string>
     <string name="saving">Ukladám…</string>
-    <string name="please_complete_form">Prosím vyplňte formulár</string>
-    <string name="please_enter_age">Zadajte prosím váš vek</string>
+    <string name="please_complete_form">Prosím, vyplňte formulár</string>
+    <string name="please_enter_age">Zadajte, prosím, svoj vek</string>
     <string name="age_must_be_between">Vek musí byť medzi 10 a 100</string>
-    <string name="please_select_gender">Vyberte prosím pohlavie</string>
-    <string name="please_select_dominant_hand">Vyberte prosím dominantnú ruku</string>
+    <string name="please_select_gender">Vyberte, prosím, pohlavie</string>
+    <string name="please_select_dominant_hand">Vyberte, prosím, dominantnú ruku</string>
     <string name="must_agree_data_collection">Musíte súhlasiť so zberom dát</string>
     <string name="metadata_saved">Metadáta úspešne uložené!</string>
 
@@ -71,11 +72,11 @@
     <string name="text_rewrite_complete">Prepísanie textu dokončené</string>
     <string name="drag_completed">✓ Drag test dokončený!</string>
     <string name="drag_try_again">Skúste to znova - potiahnite kruh až k bodu B</string>
-    <string name="please_complete_submission">Prosím dokončite odoslanie</string>
-    <string name="please_complete_drag">Prosím dokončite drag test</string>
-    <string name="please_rewrite_all_words">Prepíšte prosím všetky slová správne</string>
+    <string name="please_complete_submission">Prosím, dokončite odoslanie</string>
+    <string name="please_complete_drag">Prosím, dokončite drag test</string>
+    <string name="please_rewrite_all_words">Prepíšte, prosím, všetky slová správne</string>
     <string name="submission_saved">Odoslanie %d uložené!</string>
-    <string name="auth_processing_note">Spracovávame vaše behaviorálne dáta cez model. Môže to chvíľu trvať — prosím nevypínajte aplikáciu.</string>
+    <string name="auth_processing_note">Spracovávame vaše behaviorálne dáta cez model. Môže to chvíľu trvať — prosím, nevypínajte aplikáciu.</string>
 
     <!-- EndingActivity XML -->
     <string name="thank_you">Ďakujeme za účasť!!</string>
@@ -99,7 +100,7 @@
     <!-- AppStartHandler errors -->
     <string name="no_device_id">ID zariadenia nie je dostupné</string>
     <string name="error_checking_device">Chyba pri kontrole zariadenia: %s</string>
-    <string name="device_already_used">Toto zariadenie už bylo použité na odoslanie dát.</string>
+    <string name="device_already_used">Toto zariadenie už bolo použité na odoslanie dát.</string>
 
     <!-- FirestoreRepository errors -->
     <string name="could_not_generate_userid">Nepodarilo sa vygenerovať jedinečné ID používateľa po 50 pokusoch.</string>

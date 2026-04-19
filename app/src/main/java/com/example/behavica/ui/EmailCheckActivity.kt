@@ -184,9 +184,17 @@ class EmailCheckActivity : AppCompatActivity() {
                     startDataLoggingButton.isEnabled = false
                     authenticateButton.isEnabled = true
                 } else {
+                    // During the data logging phase, new users could register here.
+                    // Now that the logging phase is closed, only users who already
+                    // logged data can authenticate — new emails are rejected.
+                    // Old behavior:
+                    // emailLayout.helperText = null
+                    // showStatus(message, false)
+                    // startDataLoggingButton.isEnabled = true
+                    // authenticateButton.isEnabled = false
                     emailLayout.helperText = null
-                    showStatus(message, false)
-                    startDataLoggingButton.isEnabled = true
+                    showStatus(getString(R.string.logging_phase_closed), true)
+                    startDataLoggingButton.isEnabled = false
                     authenticateButton.isEnabled = false
                 }
             },
@@ -203,50 +211,46 @@ class EmailCheckActivity : AppCompatActivity() {
     }
 
     private fun setupButtons() {
-        // Data Logging Button
-        startDataLoggingButton.setOnClickListener {
-            val email = emailInput.text.toString().trim().lowercase()
+        // Data Logging button is disabled — the logging phase is over.
+        // Only users who already logged data can now authenticate.
+        // The button remains in the layout but is permanently disabled.
+        startDataLoggingButton.isEnabled = false
 
-            // Cancel any pending debounced check
-            pendingCheck?.let { handler.removeCallbacks(it) }
-
-            // Validate email format
-            if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-                showStatus(getString(R.string.please_enter_valid_email), true)
-                return@setOnClickListener
-            }
-
-            // If email was already checked and is available, proceed directly
-            if (emailChecked && emailAvailable) {
-                generateUserIdAndProceed(email)
-                return@setOnClickListener
-            }
-
-            // Otherwise, check email one more time before proceeding
-            progressBar.visibility = View.VISIBLE
-            startDataLoggingButton.isEnabled = false
-            startDataLoggingButton.text = getString(R.string.checking)
-
-            repo.checkEmailExists(
-                email = email,
-                onResult = { exists, message ->
-                    if (exists) {
-                        progressBar.visibility = View.GONE
-                        showStatus(message, true)
-                        startDataLoggingButton.isEnabled = true
-                        startDataLoggingButton.text = getString(R.string.start_data_logging)
-                    } else {
-                        generateUserIdAndProceed(email)
-                    }
-                },
-                onError = { error ->
-                    progressBar.visibility = View.GONE
-                    showStatus(getString(R.string.error_generic, error), true)
-                    startDataLoggingButton.isEnabled = true
-                    startDataLoggingButton.text = getString(R.string.start_data_logging)
-                }
-            )
-        }
+        // Old behavior during the data logging phase:
+        // startDataLoggingButton.setOnClickListener {
+        //     val email = emailInput.text.toString().trim().lowercase()
+        //     pendingCheck?.let { handler.removeCallbacks(it) }
+        //     if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+        //         showStatus(getString(R.string.please_enter_valid_email), true)
+        //         return@setOnClickListener
+        //     }
+        //     if (emailChecked && emailAvailable) {
+        //         generateUserIdAndProceed(email)
+        //         return@setOnClickListener
+        //     }
+        //     progressBar.visibility = View.VISIBLE
+        //     startDataLoggingButton.isEnabled = false
+        //     startDataLoggingButton.text = getString(R.string.checking)
+        //     repo.checkEmailExists(
+        //         email = email,
+        //         onResult = { exists, message ->
+        //             if (exists) {
+        //                 progressBar.visibility = View.GONE
+        //                 showStatus(message, true)
+        //                 startDataLoggingButton.isEnabled = true
+        //                 startDataLoggingButton.text = getString(R.string.start_data_logging)
+        //             } else {
+        //                 generateUserIdAndProceed(email)
+        //             }
+        //         },
+        //         onError = { error ->
+        //             progressBar.visibility = View.GONE
+        //             showStatus(getString(R.string.error_generic, error), true)
+        //             startDataLoggingButton.isEnabled = true
+        //             startDataLoggingButton.text = getString(R.string.start_data_logging)
+        //         }
+        //     )
+        // }
 
         // Authentication Button
         authenticateButton.setOnClickListener {

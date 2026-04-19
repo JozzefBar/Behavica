@@ -645,11 +645,11 @@ def _run_evaluation(csv_path: Path, csv_label: str):
 
     # Figúry 1-2: 5-Fold CV (distribúcia skóre, violin, TAR/FAR/FRR, ROC, confusion)
     visualize_eval(m_rf, g_rf, i_rf, y_true, y_pred, y_proba, rf_classes,
-                   meta, eval_name="5-Fold CV", csv_label=csv_label)
+                   eval_name="5-Fold CV", csv_label=csv_label)
 
     # Figúry 3-4: Temporálna evaluácia (rovnaké grafy)
     visualize_eval(t_metrics, t_g, t_i, t_true, t_pred, t_proba, t_classes,
-                   meta, eval_name="Temporálna (train 2–11, test 12–15)",
+                   eval_name="Temporálna (train 2–11, test 12–15)",
                    csv_label=csv_label)
 
     # Figúra 5: Feature importance – 5-Fold CV model

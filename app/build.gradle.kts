@@ -13,8 +13,8 @@ android {
         applicationId = "com.example.behavica"
         minSdk = 24
         targetSdk = 34
-        versionCode = 8
-        versionName = "3.5"
+        versionCode = 9
+        versionName = "4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

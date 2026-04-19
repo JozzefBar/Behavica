@@ -185,11 +185,11 @@ class FirestoreRepository(
     ) {
         val userDoc = db.collection("Users3").document(userId)
 
-        // Count existing auth records to create authentification1, authentification2, ...
-        userDoc.collection("authentification").get()
+        // Count existing auth records to create authentication1, authentication2, ...
+        userDoc.collection("authentication").get()
             .addOnSuccessListener { snapshot ->
                 val nextNumber = snapshot.size() + 1
-                val authDocId = "authentification$nextNumber"
+                val authDocId = "authentication$nextNumber"
 
                 val authData = hashMapOf(
                     "accepted" to accepted,
@@ -200,7 +200,7 @@ class FirestoreRepository(
                     "createdAt" to FieldValue.serverTimestamp()
                 )
 
-                userDoc.collection("authentification").document(authDocId)
+                userDoc.collection("authentication").document(authDocId)
                     .set(authData)
                     .addOnSuccessListener { onSuccess() }
                     .addOnFailureListener { e ->

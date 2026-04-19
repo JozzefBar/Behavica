@@ -103,7 +103,7 @@ def _plot_roc(ax, metrics):
     ax.set_ylim(-0.01, 1.01)
 
 
-def _plot_confusion(ax, y_true, y_pred, classes, email_map, eval_name=""):
+def _plot_confusion(ax, y_true, y_pred, classes, eval_name=""):
     """
     Confusion matrix identifikácie.
 
@@ -111,7 +111,7 @@ def _plot_confusion(ax, y_true, y_pred, classes, email_map, eval_name=""):
     Diagonála = správne, mimo = chyby.
     """
     cm = confusion_matrix(y_true, y_pred, labels=classes)
-    labels = [email_map.get(c, str(c)).split("@")[0] for c in classes]
+    labels = [str(c) for c in classes]
 
     im = ax.imshow(cm, interpolation="nearest", cmap="Blues")
     ax.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
@@ -129,7 +129,7 @@ def _plot_confusion(ax, y_true, y_pred, classes, email_map, eval_name=""):
                     color="white" if cm[i, j] > thresh else "black", fontsize=6)
 
 
-def _plot_per_user_scores(ax, y_true, y_proba, rf_classes, meta):
+def _plot_per_user_scores(ax, y_true, y_proba, rf_classes):
     """
     Violin plot genuine vs. impostor skóre pre každého používateľa.
 
@@ -140,8 +140,7 @@ def _plot_per_user_scores(ax, y_true, y_proba, rf_classes, meta):
     from matplotlib.patches import Patch
 
     unique_users = rf_classes
-    email_map    = dict(zip(meta["userId"], meta["email"]))
-    labels       = [email_map.get(u, str(u)).split("@")[0] for u in unique_users]
+    labels       = [str(u) for u in unique_users]
 
     data_genuine  = []
     data_impostor = []
@@ -190,7 +189,7 @@ def _plot_per_user_scores(ax, y_true, y_proba, rf_classes, meta):
 
 def visualize_eval(metrics, genuine, impostor,
                    y_true, y_pred, y_proba, rf_classes,
-                   meta, eval_name: str = "", csv_label: str = ""):
+                   eval_name: str = "", csv_label: str = ""):
     """
     Vygeneruje 2 figúry pre jednu evaluáciu (5-Fold CV alebo temporálnu):
 
@@ -198,9 +197,8 @@ def visualize_eval(metrics, genuine, impostor,
       Distribúcia skóre | Per-user violin plot
       TAR/FAR/FRR       | ROC krivka
 
-    Figúra 2 – Confusion Matrix (samostatná)
+    Figúra 2 – Konfúzna matica (samostatná)
     """
-    email_map = dict(zip(meta["userId"], meta["email"]))
     title_sfx = f"  [{csv_label}]" if csv_label else ""
 
     # ── Figúra 1: Verifikačné metriky (2×2) ──────────────────────────────────
@@ -210,18 +208,18 @@ def visualize_eval(metrics, genuine, impostor,
     gs1 = gridspec.GridSpec(2, 2, figure=fig1, hspace=0.42, wspace=0.35)
 
     _plot_score_distributions(fig1.add_subplot(gs1[0, 0]), genuine, impostor, metrics)
-    _plot_per_user_scores(fig1.add_subplot(gs1[0, 1]), y_true, y_proba, rf_classes, meta)
+    _plot_per_user_scores(fig1.add_subplot(gs1[0, 1]), y_true, y_proba, rf_classes)
     _plot_tar_far_frr(fig1.add_subplot(gs1[1, 0]), metrics)
     _plot_roc(fig1.add_subplot(gs1[1, 1]), metrics)
 
-    # ── Figúra 2: Confusion Matrix ────────────────────────────────────────────
+    # ── Figúra 2: Konfúzna matica ────────────────────────────────────────────
     n_users = len(rf_classes)
     fig2_size = max(10, n_users * 0.45 + 3)
     fig2    = plt.figure(figsize=(fig2_size, fig2_size))
     fig2.suptitle(f"Behavica – {eval_name}: Konfúzna matica{title_sfx}",
                   fontsize=14, fontweight="bold", y=0.99)
     ax2 = fig2.add_subplot(1, 1, 1)
-    _plot_confusion(ax2, y_true, y_pred, rf_classes, email_map, eval_name)
+    _plot_confusion(ax2, y_true, y_pred, rf_classes, eval_name)
     fig2.subplots_adjust(left=0.18, bottom=0.18, right=0.95, top=0.92)
 
 
