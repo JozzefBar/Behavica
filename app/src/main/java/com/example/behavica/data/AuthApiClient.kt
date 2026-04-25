@@ -25,6 +25,7 @@ class AuthApiClient {
         val email: String,
         val allScores: Map<String, Double>,
         val eerThreshold: Double,
+        val modelVariant: String,
         val error: String?
     )
 
@@ -112,6 +113,7 @@ class AuthApiClient {
                     val score        = obj.getDouble("score")
                     val email        = obj.getString("email")
                     val eerThreshold = obj.optDouble("eerThreshold", 0.0)
+                    val modelVariant = obj.optString("modelVariant", "unknown")
 
                     val allScoresJson = obj.getJSONObject("allScores")
                     val allScores = allScoresJson.keys().asSequence().associate { key ->
@@ -119,7 +121,7 @@ class AuthApiClient {
                     }
 
                     val error = if (obj.has("error")) obj.getString("error") else null
-                    onResult(AuthResult(accepted, score, email, allScores, eerThreshold, error))
+                    onResult(AuthResult(accepted, score, email, allScores, eerThreshold, modelVariant, error))
                 } catch (e: Exception) {
                     onError("Response parsing error: ${e.message}")
                 }

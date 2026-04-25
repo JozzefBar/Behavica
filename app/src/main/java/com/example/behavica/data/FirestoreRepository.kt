@@ -180,6 +180,7 @@ class FirestoreRepository(
         score: Double,
         email: String,
         allScores: Map<String, Double>,
+        modelVariant: String,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
@@ -196,6 +197,7 @@ class FirestoreRepository(
                     "score" to score,
                     "email" to email,
                     "allScores" to allScores,
+                    "modelVariant" to modelVariant,
                     "timestamp" to System.currentTimeMillis(),
                     "createdAt" to FieldValue.serverTimestamp()
                 )

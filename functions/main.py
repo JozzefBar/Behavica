@@ -410,6 +410,7 @@ def authenticate(req: https_fn.Request) -> https_fn.Response:
         "userId":       claimed_user_id,
         "email":        email_map.get(str(claimed_user_id), "neznámy"),
         "eerThreshold": round(eer_threshold, 4),
+        "modelVariant": model.get("variant", "unknown"),
         # All scores – for debugging / visualization on Android side
         "allScores":    {str(uid): round(float(s), 4) for uid, s in scores.items()},
     }

@@ -286,6 +286,7 @@ class SubmissionActivity : AppCompatActivity() {
                         score = result.score,
                         email = result.email,
                         allScores = result.allScores,
+                        modelVariant = result.modelVariant,
                         onSuccess = { },
                         onError = { }
                     )

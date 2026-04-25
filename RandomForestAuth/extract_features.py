@@ -365,6 +365,11 @@ def get_ablation_combos(all_cols: list) -> list:
     sensor_cols = grp(["sd_"])
     touch_cols  = grp(["tp_"])
     ks_cols     = grp(["ks_"])
+    # Magnitúdové príznaky – izolovaný test ich prínosu v rámci senzorovej skupiny.
+    # V portrait-locked appke je ich hlavný benefit (orientačná nezávislosť) sporný,
+    # lebo per-axis príznaky už obsahujú informáciu o orientácii (gravitačný bias).
+    mag_cols    = ["sd_accel_mag_mean", "sd_accel_mag_std",
+                   "sd_gyro_mag_mean",  "sd_gyro_mag_std"]
     # Všetkých 10 agregovaných metrík z submissions_basic.csv
     basic_cols  = grp(["submissionDurationSec", "dragAttempts", "dragDistance",
                         "dragPathLength", "dragDurationSec", "textRewriteTime",
@@ -373,9 +378,32 @@ def get_ablation_combos(all_cols: list) -> list:
     # Všetko súvisiace s drag testom: agregované metriky + dotykové rýchlosti
     drag_cols   = grp(["drag", "tp_drag_"])
 
+    # Device-independent podmnožina: časové/počtové/variabilitné príznaky,
+    # bez means senzorov/touchu a bez screen-size závislých hodnôt.
+    # Cieľ: simulovať hypotetický cross-device generalizačný scenár.
+    device_indep_cols = [c for c in [
+        # Basic (bez dragDistance/dragPathLength – závisia od veľkosti displeja)
+        "submissionDurationSec", "dragAttempts", "dragDurationSec",
+        "textRewriteTime", "averageWordTime", "textEditCount",
+        "touchPointsCount", "sensorDataCount",
+        # Touch – variabilita / časovanie / počty (bez means a range)
+        "tp_pressure_std", "tp_size_std", "tp_touchMajor_std", "tp_touchMinor_std",
+        "tp_iti_mean", "tp_iti_std", "tp_down_count",
+        "tp_drag_vel_std", "tp_all_vel_std",
+        # Keystrokes – všetko (timing/count/ratio)
+        *ks_cols,
+        # Sensor – len std a range (bez means → ignoruje gravitačný bias)
+        "sd_accelX_std", "sd_accelX_range", "sd_accelY_std", "sd_accelY_range",
+        "sd_accelZ_std", "sd_accelZ_range",
+        "sd_gyroX_std", "sd_gyroX_range", "sd_gyroY_std", "sd_gyroY_range",
+        "sd_gyroZ_std", "sd_gyroZ_range",
+        "sd_accel_mag_std", "sd_gyro_mag_std",
+    ] if c in all_cols]
+
     return [
         ("vsetky_priznaky",      all_cols),
         ("len_senzory",           sensor_cols),
+        ("len_senzory_bez_magnitud", [c for c in sensor_cols if c not in mag_cols]),
         ("len_touch_points",      touch_cols),
         ("len_keystrokes",        ks_cols),
         ("len_drag",              drag_cols),
@@ -384,6 +412,7 @@ def get_ablation_combos(all_cols: list) -> list:
         ("senzory_a_keystrokes",  sensor_cols + ks_cols),
         ("touch_a_keystrokes",    touch_cols  + ks_cols),
         ("bez_senzorov",          [c for c in all_cols if c not in sensor_cols]),
+        ("device_independent",    device_indep_cols),
     ]
 
 
@@ -441,15 +470,51 @@ def _main_logic():
     # Uloženie variantov pre ablation study
     ablation_dir = OUT_DIR / "ablation_csvs"
 
+    # Krátke popisy variantov – aby bolo z logu hneď jasné, čo ktorý CSV testuje.
+    # Pridávané do print výstupu; nemenia obsah CSV súborov.
+    descriptions = {
+        "vsetky_priznaky":           "baseline – všetky príznaky spolu",
+        "len_senzory":               "izolovaný prínos akcelerometra + gyroskopu",
+        "len_senzory_bez_magnitud":  "senzory bez 3D magnitúd (test redundancie v portrait-only)",
+        "len_touch_points":          "izolovaný prínos dotykových bodov",
+        "len_keystrokes":            "izolovaný prínos klávesnicových udalostí",
+        "len_drag":                  "izolovaný prínos drag & drop testu",
+        "agregovane_metriky":        "len 10 hotových metrík zo submissions_basic.csv",
+        "senzory_a_touch":           "senzory + touch (bez keystrokov)",
+        "senzory_a_keystrokes":      "senzory + keystroky (bez touchu)",
+        "touch_a_keystrokes":        "touch + keystroky (bez senzorov)",
+        "bez_senzorov":              "všetko okrem senzorov – test scenára bez akcelerometra/gyroskopu",
+        "device_independent":        "device-independent podmnožina (bez means a screen-závislých metrík)",
+    }
+
     combos = get_ablation_combos(feature_cols)
     print(f"\nGenerujem {len(combos)} CSV variantov pre ablation study ...")
+    # Šírka stĺpca s názvom CSV – dynamicky podľa najdlhšieho mena, aby boli popisy zarovnané.
+    name_w = max(len(name) for name, _ in combos) + len(".csv")
     for csv_name, cols in combos:
         if not cols:
             print(f"  ✗ {csv_name}.csv – žiadne príznaky, preskakujem")
             continue
         path = ablation_dir / f"{csv_name}.csv"
         df[["userId", "submissionNumber"] + cols].to_csv(path, index=False)
-        print(f"  ✓ {csv_name}.csv  ({len(cols)} príznakov)")
+        desc = descriptions.get(csv_name, "")
+        print(f"  ✓ {(csv_name + '.csv'):<{name_w}}  ({len(cols):2d} príznakov)  – {desc}")
+
+    # ── top-10 variant (dynamicky podľa feature importance RF modelu) ─────
+    print(f"\nGenerujem top-10 variant podľa RF feature importance ...")
+    from sklearn.ensemble import RandomForestClassifier
+    X = df[feature_cols].values
+    y = df["userId"].values
+    rf = RandomForestClassifier(n_estimators=300, random_state=42, n_jobs=-1)
+    rf.fit(X, y)
+    imp = rf.feature_importances_
+    top_idx = np.argsort(imp)[::-1][:10]
+    top10_cols = [feature_cols[i] for i in top_idx]
+    path = ablation_dir / "top10_priznaky.csv"
+    df[["userId", "submissionNumber"] + top10_cols].to_csv(path, index=False)
+    print(f"  ✓ top10_priznaky.csv  (10 príznakov)")
+    for rank, (col, val) in enumerate(zip(top10_cols, imp[top_idx]), 1):
+        print(f"      {rank:2d}. {col:<40s} {val*100:.3f}%")
 
     print(f"\nVšetky CSV súbory uložené.")
     print(f"  python evaluate.py ablation_csvs/vsetky_priznaky.csv")
