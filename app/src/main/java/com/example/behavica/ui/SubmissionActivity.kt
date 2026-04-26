@@ -287,6 +287,7 @@ class SubmissionActivity : AppCompatActivity() {
                         email = result.email,
                         allScores = result.allScores,
                         modelVariant = result.modelVariant,
+                        eerThreshold = result.eerThreshold,
                         onSuccess = { },
                         onError = { }
                     )

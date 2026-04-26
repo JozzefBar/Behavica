@@ -181,6 +181,7 @@ class FirestoreRepository(
         email: String,
         allScores: Map<String, Double>,
         modelVariant: String,
+        eerThreshold: Double,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
@@ -198,6 +199,7 @@ class FirestoreRepository(
                     "email" to email,
                     "allScores" to allScores,
                     "modelVariant" to modelVariant,
+                    "eerThreshold" to eerThreshold,
                     "timestamp" to System.currentTimeMillis(),
                     "createdAt" to FieldValue.serverTimestamp()
                 )

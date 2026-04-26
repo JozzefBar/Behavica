@@ -139,6 +139,7 @@ def export(csv_arg: str | None = None):
         email = email_map.get(uid, email_map.get(str(uid), "?"))
         print(f"    {int(uid):>6d}  {email}")
 
+    print(f"\n  Prejdi späť: cd ..")
     print(f"\n  Teraz spusti:  firebase deploy --only functions")
 
 
