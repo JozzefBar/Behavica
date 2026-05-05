@@ -202,12 +202,13 @@ def _plot_per_user_scores(ax, y_true, y_proba, rf_classes, eer_threshold=None):
 
 def _plot_per_user_rank_distribution(ax, y_true, y_proba, rf_classes, eer_threshold):
     """
-    Per-submission rank scatter – Y-os = rank skutočného usera (1 hore, N dole),
-    submissiony zoskupené podľa skutočného usera (ticky 36 userov pod osou X).
+    Per-submission rank scatter – X-os = rank skutočného usera (1 vľavo, N vpravo),
+    submissiony zoskupené podľa skutočného usera (ticky 36 userov pozdĺž osi Y).
+    Portrait orientácia – lepšie sa vmestí na A4 stranu.
 
     Markery rozlišujú rozhodnutie pri EER prahu:
       ● zelený bod  = rank 1 + akceptovaný (ideál)
-      ▽ oranžový ▽  = rank 1, ale skóre pod prahom (False Reject)
+      ▷ oranžový ▷  = rank 1, ale skóre pod prahom (False Reject)
       ✗ červený ✗   = rank > 1 (misidentifikácia)
     """
     order     = np.argsort(y_true)
@@ -226,44 +227,44 @@ def _plot_per_user_rank_distribution(ax, y_true, y_proba, rf_classes, eer_thresh
 
     ranks    = np.array(ranks)
     accepted = np.array(accepted)
-    x        = np.arange(len(ranks))
+    y        = np.arange(len(ranks))
 
     ok_mask  = (ranks == 1) & accepted
     fr_mask  = (ranks == 1) & ~accepted
     bad_mask = ranks > 1
 
-    ax.scatter(x[ok_mask],  ranks[ok_mask],  s=22, color=COLORS["genuine"],
+    ax.scatter(ranks[ok_mask],  y[ok_mask],  s=22, color=COLORS["genuine"],
                label=f"Rank 1 + akceptovaný ({int(ok_mask.sum())})", zorder=3)
-    ax.scatter(x[fr_mask],  ranks[fr_mask],  s=30, color=COLORS["eer"],
-               marker="v",
+    ax.scatter(ranks[fr_mask],  y[fr_mask],  s=30, color=COLORS["eer"],
+               marker=">",
                label=f"Rank 1, ale pod prahom ({int(fr_mask.sum())})", zorder=4)
-    ax.scatter(x[bad_mask], ranks[bad_mask], s=36, color=COLORS["impostor"],
+    ax.scatter(ranks[bad_mask], y[bad_mask], s=36, color=COLORS["impostor"],
                marker="x",
                label=f"Misidentifikácia – rank > 1 ({int(bad_mask.sum())})", zorder=5)
 
-    ax.axhline(1, color=COLORS["genuine"], ls="--", lw=1.2, alpha=0.5,
+    ax.axvline(1, color=COLORS["genuine"], ls="--", lw=1.2, alpha=0.5,
                label="Ideál = rank 1")
 
     boundaries = np.where(np.diff(y_true_s) != 0)[0] + 0.5
     for b in boundaries:
-        ax.axvline(b, color="lightgray", lw=0.4, alpha=0.6, zorder=0)
+        ax.axhline(b, color="lightgray", lw=0.4, alpha=0.6, zorder=0)
 
     unique_users, first_idx = np.unique(y_true_s, return_index=True)
     counts  = np.array([np.sum(y_true_s == u) for u in unique_users])
     centers = first_idx + counts / 2 - 0.5
 
-    ax.set_xticks(centers)
-    ax.set_xticklabels([str(u) for u in unique_users], rotation=90, fontsize=10)
-    ax.tick_params(axis="y", labelsize=11)
-    ax.set_xlim(-1, len(x))
-    ax.set_ylim(n_users + 0.5, 0.5)
-    ax.set_xlabel("Testovací submission (zoskupené podľa skutočného usera)", fontsize=12)
-    ax.set_ylabel(f"Rank skutočného usera  (1 = najlepší, {n_users} = najhorší)", fontsize=12)
+    ax.set_yticks(centers)
+    ax.set_yticklabels([str(u) for u in unique_users], fontsize=10)
+    ax.tick_params(axis="x", labelsize=11)
+    ax.set_ylim(len(y), -1)            # invertované: prvý submission hore, posledný dole
+    ax.set_xlim(0.5, n_users + 0.5)
+    ax.set_ylabel("Testovací submission (zoskupené podľa skutočného usera)", fontsize=12)
+    ax.set_xlabel(f"Rank skutočného usera  (1 = najlepší, {n_users} = najhorší)", fontsize=12)
     mean_rank = ranks.mean()
     ax.set_title(f"Per-user rank pri EER prahu ({eer_threshold*100:.2f} %) – "
                  f"priemer {mean_rank:.2f}, {int((ranks==1).sum())}/{len(ranks)} s rank 1",
-                 fontweight="bold", fontsize=14)
-    ax.legend(fontsize=10, loc="lower right")
+                 fontweight="bold", fontsize=13)
+    ax.legend(fontsize=9, loc="lower right")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -277,8 +278,8 @@ def visualize_eval(metrics, genuine, impostor,
     Vygeneruje 3 figúry pre jednu evaluáciu (5-Fold CV alebo temporálnu):
 
     Figúra 1 – Verifikačné metriky (2×2):
-      Distribúcia skóre | Per-user violin plot
-      TAR/FAR/FRR       | ROC krivka
+      Distribúcia skóre   | TAR/FAR/FRR
+      Per-user violin plot | ROC krivka
 
     Figúra 2 – Konfúzna matica (samostatná)
 
@@ -294,8 +295,8 @@ def visualize_eval(metrics, genuine, impostor,
     gs1 = gridspec.GridSpec(2, 2, figure=fig1, hspace=0.42, wspace=0.35)
 
     _plot_score_distributions(fig1.add_subplot(gs1[0, 0]), genuine, impostor, metrics)
-    _plot_per_user_scores(fig1.add_subplot(gs1[0, 1]), y_true, y_proba, rf_classes, eer_threshold)
-    _plot_tar_far_frr(fig1.add_subplot(gs1[1, 0]), metrics)
+    _plot_tar_far_frr(fig1.add_subplot(gs1[0, 1]), metrics)
+    _plot_per_user_scores(fig1.add_subplot(gs1[1, 0]), y_true, y_proba, rf_classes, eer_threshold)
     _plot_roc(fig1.add_subplot(gs1[1, 1]), metrics)
 
     # ── Figúra 2: Konfúzna matica ────────────────────────────────────────────
@@ -308,13 +309,15 @@ def visualize_eval(metrics, genuine, impostor,
     _plot_confusion(ax2, y_true, y_pred, rf_classes, eval_name)
     fig2.subplots_adjust(left=0.18, bottom=0.18, right=0.95, top=0.92)
 
-    # ── Figúra 3: Per-user rank scatter ──────────────────────────────────────
-    fig3 = plt.figure(figsize=(max(14, len(y_true) * 0.035 + 4), 6))
+    # ── Figúra 3: Per-user rank scatter (portrait pre A4) ────────────────────
+    #   užšia šírka  → stĺpce (rank 1..N) sú vizuálne tesnejšie pri sebe
+    #   väčšia výška → riadky (jednotliví submissioni) majú viac priestoru
+    fig3 = plt.figure(figsize=(6, max(12, len(y_true) * 0.030 + 3)))
     fig3.suptitle(f"Behavica – {eval_name}: Per-user rank{title_sfx}",
-                  fontsize=16, fontweight="bold", y=0.98)
+                  fontsize=15, fontweight="bold", y=0.99)
     ax3 = fig3.add_subplot(1, 1, 1)
     _plot_per_user_rank_distribution(ax3, y_true, y_proba, rf_classes, eer_threshold)
-    fig3.tight_layout(rect=[0, 0, 1, 0.94])
+    fig3.tight_layout(rect=[0, 0, 1, 0.96])
 
 
 def plot_feature_importance(rf_model, feature_names, csv_label: str = "",
