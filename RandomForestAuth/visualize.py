@@ -258,11 +258,11 @@ def _plot_per_user_rank_distribution(ax, y_true, y_proba, rf_classes, eer_thresh
     ax.tick_params(axis="x", labelsize=11)
     ax.set_ylim(len(y), -1)            # invertované: prvý submission hore, posledný dole
     ax.set_xlim(0.5, n_users + 0.5)
-    ax.set_ylabel("Testovací submission (zoskupené podľa skutočného usera)", fontsize=12)
-    ax.set_xlabel(f"Rank skutočného usera  (1 = najlepší, {n_users} = najhorší)", fontsize=12)
+    ax.set_ylabel("Testovací pokus (zoskupený podľa skutočného používateľa)", fontsize=12)
+    ax.set_xlabel(f"Poradie skutočného používateľa  (1 = najlepšie, {n_users} = najhoršie)", fontsize=12)
     mean_rank = ranks.mean()
-    ax.set_title(f"Per-user rank pri EER prahu ({eer_threshold*100:.2f} %) – "
-                 f"priemer {mean_rank:.2f}, {int((ranks==1).sum())}/{len(ranks)} s rank 1",
+    ax.set_title(f"Poradie skutočného používateľa pri EER prahu ({eer_threshold*100:.2f} %) – "
+                 f"priemer {mean_rank:.2f}, {int((ranks==1).sum())}/{len(ranks)} s poradím 1",
                  fontweight="bold", fontsize=13)
     ax.legend(fontsize=9, loc="lower right")
 
