@@ -1,29 +1,18 @@
 """
-export_model.py
-===============
-Natrénuje Random Forest model na ľubovoľnom ablation CSV variante a uloží ho do
-functions/model.pkl, odkiaľ ho Firebase Cloud Function načíta pri štarte.
+export_model.py – trains a Random Forest on a chosen ablation CSV variant
+and writes it to functions/model.pkl (loaded by the Cloud Function at start).
 
-Voľba CSV variantu (a teda zoznamu príznakov):
-  python export_model.py                              # default = vsetky_priznaky
-  python export_model.py top10_priznaky               # iba top-10 najdôležitejších
-  python export_model.py device_independent_priznaky  # device-independent subset
-  python export_model.py len_keystrokes               # iba klávesnicové príznaky
-  python export_model.py ablation_csvs/top10_priznaky.csv   # plná cesta tiež OK
+Variant selection:
+  python export_model.py                                  # default vsetky_priznaky
+  python export_model.py top10_priznaky                   # top-10 features
+  python export_model.py device_independent_priznaky      # device-independent
+  python export_model.py len_keystrokes                   # keystrokes only
+  python export_model.py ablation_csvs/top10_priznaky.csv # full path also OK
 
-Cieľ: vedieť rýchlo otestovať aký RF vyjde pre rôzne podmnožiny príznakov,
-hlavne pre cross-device generalizáciu (device-independent variant).
+Saved into model.pkl:
+  rf, feature_cols, email_map, eer_threshold, feature_medians, variant.
 
-Čo sa uloží do model.pkl:
-  - rf            : finálny RandomForestClassifier (natrénovaný na všetkých dátach)
-  - feature_cols  : presný zoznam a poradie features (Cloud Function ho použije)
-  - email_map     : {userId: email} – pre čitateľné výstupy
-  - eer_threshold : EER prah z 5-Fold CV
-  - feature_medians: mediány príznakov pre NaN imputáciu
-
-Predpoklad:
-  Pred spustením musí existovať príslušný CSV v ablation_csvs/.
-  Ak chýba – spusti najprv:  python extract_features.py
+Requires the chosen CSV in ablation_csvs/ — run extract_features.py first.
 """
 
 import pickle
@@ -41,21 +30,16 @@ META_CSV     = Path(__file__).parent.parent / "BehavicaExport" / "user_metadata.
 
 
 def _resolve_csv_path(arg: str | None) -> Path:
-    """
-    Z argumentu (napr. "top10_priznaky" alebo "ablation_csvs/top10_priznaky.csv"
-    alebo None) vyrobí cestu k existujúcemu CSV v ablation_csvs/.
-    """
+    """Resolves an arg (name, relative/full path or None) to a CSV in ablation_csvs/."""
     if arg is None:
         return ABLATION_DIR / "vsetky_priznaky.csv"
 
     p = Path(arg)
-    # Ak používateľ zadal plnú cestu
     if p.is_file():
         return p
-    # Skús ako relatívna cesta od pwd
     if (Path.cwd() / p).is_file():
         return Path.cwd() / p
-    # Skús pridať .csv ak nie je
+    # Try adding .csv if missing
     name = p.name if p.suffix == ".csv" else f"{p.name}.csv"
     candidate = ABLATION_DIR / name
     if candidate.is_file():
@@ -68,12 +52,12 @@ def _resolve_csv_path(arg: str | None) -> Path:
 
 def export(csv_arg: str | None = None):
     csv_path = _resolve_csv_path(csv_arg)
-    variant  = csv_path.stem  # napr. "top10_priznaky"
+    variant  = csv_path.stem  # e.g. "top10_priznaky"
 
     print(f"Načítavam CSV variant: {csv_path}")
     df = pd.read_csv(csv_path)
 
-    # Stĺpce príznakov = všetky okrem userId a submissionNumber
+    # Feature columns = everything except userId / submissionNumber
     feature_cols = [c for c in df.columns if c not in ("userId", "submissionNumber")]
     if not feature_cols:
         raise ValueError(f"V CSV {csv_path} nie sú žiadne príznakové stĺpce.")
@@ -81,7 +65,7 @@ def export(csv_arg: str | None = None):
     X_raw = df[feature_cols].values.astype(float)
     y     = df["userId"].values
 
-    # Mediány na NaN imputáciu (Cloud Function ich použije pri chýbajúcich hodnotách)
+    # Medians for NaN imputation (used by the Cloud Function)
     feature_medians = {
         col: float(df[col].median()) for col in feature_cols
     }
@@ -94,7 +78,7 @@ def export(csv_arg: str | None = None):
     y_true, y_pred, _, _, rf_model, eer_threshold = run_rf_cv(X_raw, y)
     cv_acc = float(np.mean(y_true == y_pred))
 
-    # Email map z user_metadata.csv
+    # Email map from user_metadata.csv
     if META_CSV.is_file():
         meta = pd.read_csv(META_CSV)
         email_map = dict(zip(meta["userId"], meta["email"]))

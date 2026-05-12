@@ -1,13 +1,11 @@
 """
-Behavica – Vizualizácie biometrickej autentifikácie
-=====================================================
+Behavica – biometric authentication visualizations.
 
-Modul obsahuje všetky vizualizačné funkcie pre evaluate.py.
-Generuje grafy pre ľubovoľnú evaluáciu (5-Fold CV aj temporálnu).
+All plotting helpers for evaluate.py; works for any evaluation (5-Fold CV
+or temporal).
 
-Funkcie:
-  visualize_eval()        – 3 figúry pre jednu evaluáciu (distribúcia, metriky, confusion)
-  plot_feature_importance() – feature importance z finálneho modelu (len raz, nie per eval)
+  visualize_eval()          – 3 figures per evaluation (distribution, metrics, confusion)
+  plot_feature_importance() – feature importance from the final model (once, not per eval)
 """
 
 import numpy as np
@@ -16,33 +14,22 @@ import matplotlib.gridspec as gridspec
 from sklearn.metrics import confusion_matrix
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# FARBY – konzistentné naprieč všetkými grafmi
-# ══════════════════════════════════════════════════════════════════════════════
-
+# Consistent colors across all plots
 COLORS = {
-    "genuine":  "#2ecc71",   # zelená = správne príjatý
-    "impostor": "#e74c3c",   # červená = útočník
-    "rf":       "#9b59b6",   # fialová = Random Forest model
-    "eer":      "#e67e22",   # oranžová = EER bod/prah
-    "tar":      "#27ae60",   # tmavo zelená = TAR krivka
-    "far":      "#c0392b",   # tmavo červená = FAR krivka
-    "frr":      "#2980b9",   # modrá = FRR krivka
+    "genuine":  "#2ecc71",   # green = correctly accepted
+    "impostor": "#e74c3c",   # red = attacker
+    "rf":       "#9b59b6",   # purple = Random Forest
+    "eer":      "#e67e22",   # orange = EER point/threshold
+    "tar":      "#27ae60",
+    "far":      "#c0392b",
+    "frr":      "#2980b9",
 }
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# JEDNOTLIVÉ SUBPLOT FUNKCIE
-# ══════════════════════════════════════════════════════════════════════════════
+# Subplot helpers
 
 def _plot_score_distributions(ax, genuine, impostor, metrics):
-    """
-    Histogram genuine a impostor skóre.
-
-    Ideálne: genuine skóre (zelená) vpravo, impostor skóre (červená) vľavo.
-    Čím menší prekryv, tým lepší systém. EER prah (oranžová čiara)
-    je optimálny bod kde sa krivky pretínajú.
-    """
+    """Histogram of genuine vs impostor scores; less overlap = better system."""
     bins = np.linspace(0, 1, 40)
     ax.hist(genuine, bins=bins, alpha=0.65, color=COLORS["genuine"],
             label=f"Genuine  (n={len(genuine)})", density=True, edgecolor="white", lw=0.3)
@@ -59,15 +46,7 @@ def _plot_score_distributions(ax, genuine, impostor, metrics):
 
 
 def _plot_tar_far_frr(ax, metrics):
-    """
-    TAR, FAR a FRR krivky v závislosti od prahu.
-
-    Keď prah rastie (prísnejší systém):
-      FAR klesá (menej falošných prijatí = bezpečnejšie)
-      FRR rastie (viac falošných odmietnutí = menej pohodlné)
-      TAR klesá (systém akceptuje menej genuínnych)
-    EER = bod kde FAR = FRR (kompromisný bod).
-    """
+    """TAR/FAR/FRR vs threshold. EER = point where FAR = FRR (trade-off)."""
     t = metrics["thresholds"]
     ax.plot(t, metrics["TAR"], color=COLORS["tar"], lw=2, label="TAR (True Accept Rate)")
     ax.plot(t, metrics["FAR"], color=COLORS["far"], lw=2, label="FAR (False Accept Rate)")
@@ -84,13 +63,7 @@ def _plot_tar_far_frr(ax, metrics):
 
 
 def _plot_roc(ax, metrics):
-    """
-    ROC krivka.
-
-    X-os: FAR (koľko impostrov prenikne)
-    Y-os: TAR (koľko legitímnych používateľov prebehne)
-    Ideálna krivka: ľavý horný roh (FAR=0, TAR=1). AUC=1.0 = perfektný.
-    """
+    """ROC curve – FAR (x) vs TAR (y). Top-left = ideal; AUC=1.0 = perfect."""
     idx = np.argsort(metrics["FAR"])
     ax.plot(metrics["FAR"][idx], metrics["TAR"][idx], color=COLORS["rf"], lw=2,
             label=f"Random Forest (AUC={metrics['AUC']:.3f})")
@@ -107,12 +80,7 @@ def _plot_roc(ax, metrics):
 
 
 def _plot_confusion(ax, y_true, y_pred, classes, eval_name=""):
-    """
-    Confusion matrix identifikácie.
-
-    Riadok = skutočný používateľ, stĺpec = predikovaný.
-    Diagonála = správne, mimo = chyby.
-    """
+    """Identification confusion matrix; rows = actual, cols = predicted."""
     cm = confusion_matrix(y_true, y_pred, labels=classes)
     labels = [str(c) for c in classes]
 
@@ -135,16 +103,11 @@ def _plot_confusion(ax, y_true, y_pred, classes, eval_name=""):
 
 
 def _plot_per_user_scores(ax, y_true, y_proba, rf_classes, eer_threshold=None):
-    """
-    Violin plot genuine vs. impostor skóre pre každého používateľa.
+    """Violin plot of genuine vs impostor scores per user.
 
-    Genuine  = P(u) keď submission naozaj patrí u
-    Impostor = P(u) keď submission patrí inému
-    Tvar violin ukazuje hustotu rozdelenia skóre.
-
-    Ak je zadaný eer_threshold, zobrazí sa ako vodorovná čiara
-    – pre každého usera vidno aké % zeleného violinu je nad prahom (TAR)
-      a aké % červeného je pod prahom (TRR).
+    Genuine  = P(u) when submission really is u's.
+    Impostor = P(u) when submission belongs to someone else.
+    If eer_threshold is given, draws it as a horizontal line.
     """
     from matplotlib.patches import Patch
 
@@ -161,7 +124,7 @@ def _plot_per_user_scores(ax, y_true, y_proba, rf_classes, eer_threshold=None):
     positions_g = np.arange(len(unique_users)) * 2.5
     positions_i = positions_g + 0.9
 
-    # Genuine violin (zelený)
+    # Genuine violin (green)
     vp1 = ax.violinplot(data_genuine, positions=positions_g, widths=0.7,
                         showmeans=False, showmedians=True, showextrema=False)
     for body in vp1["bodies"]:
@@ -171,7 +134,7 @@ def _plot_per_user_scores(ax, y_true, y_proba, rf_classes, eer_threshold=None):
     vp1["cmedians"].set_color("black")
     vp1["cmedians"].set_linewidth(2)
 
-    # Impostor violin (červený)
+    # Impostor violin (red)
     vp2 = ax.violinplot(data_impostor, positions=positions_i, widths=0.7,
                         showmeans=False, showmedians=True, showextrema=False)
     for body in vp2["bodies"]:
@@ -201,15 +164,13 @@ def _plot_per_user_scores(ax, y_true, y_proba, rf_classes, eer_threshold=None):
 
 
 def _plot_per_user_rank_distribution(ax, y_true, y_proba, rf_classes, eer_threshold):
-    """
-    Per-submission rank scatter – X-os = rank skutočného usera (1 vľavo, N vpravo),
-    submissiony zoskupené podľa skutočného usera (ticky 36 userov pozdĺž osi Y).
-    Portrait orientácia – lepšie sa vmestí na A4 stranu.
+    """Per-submission rank scatter (portrait — fits an A4 page).
 
-    Markery rozlišujú rozhodnutie pri EER prahu:
-      ● zelený bod  = rank 1 + akceptovaný (ideál)
-      ▷ oranžový ▷  = rank 1, ale skóre pod prahom (False Reject)
-      ✗ červený ✗   = rank > 1 (misidentifikácia)
+    X = rank of the true user (1 best, N worst); Y = submissions grouped by user.
+    Markers at the EER threshold:
+      ● green = rank 1 + accepted (ideal)
+      ▷ orange = rank 1 but score below threshold (False Reject)
+      ✗ red = rank > 1 (misidentification)
     """
     order     = np.argsort(y_true)
     y_true_s  = np.array(y_true)[order]
@@ -256,7 +217,7 @@ def _plot_per_user_rank_distribution(ax, y_true, y_proba, rf_classes, eer_thresh
     ax.set_yticks(centers)
     ax.set_yticklabels([str(u) for u in unique_users], fontsize=10)
     ax.tick_params(axis="x", labelsize=11)
-    ax.set_ylim(len(y), -1)            # invertované: prvý submission hore, posledný dole
+    ax.set_ylim(len(y), -1)            # inverted: first submission on top
     ax.set_xlim(0.5, n_users + 0.5)
     ax.set_ylabel("Testovací pokus (zoskupený podľa skutočného používateľa)", fontsize=12)
     ax.set_xlabel(f"Poradie skutočného používateľa  (1 = najlepšie, {n_users} = najhoršie)", fontsize=12)
@@ -267,28 +228,22 @@ def _plot_per_user_rank_distribution(ax, y_true, y_proba, rf_classes, eer_thresh
     ax.legend(fontsize=9, loc="lower right")
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# HLAVNÉ FUNKCIE – volané z evaluate.py
-# ══════════════════════════════════════════════════════════════════════════════
+# Public functions – called from evaluate.py
 
 def visualize_eval(metrics, genuine, impostor,
                    y_true, y_pred, y_proba, rf_classes,
                    eval_name: str = "", csv_label: str = ""):
-    """
-    Vygeneruje 3 figúry pre jednu evaluáciu (5-Fold CV alebo temporálnu):
+    """Generates 3 figures for one evaluation (5-Fold CV or temporal):
 
-    Figúra 1 – Verifikačné metriky (2×2):
-      Distribúcia skóre   | TAR/FAR/FRR
-      Per-user violin plot | ROC krivka
-
-    Figúra 2 – Konfúzna matica (samostatná)
-
-    Figúra 3 – Per-user rank pri EER prahu (Y-os = rank, zoskupené po useroch)
+    Figure 1 – verification metrics (2×2): score distribution, TAR/FAR/FRR,
+               per-user violin, ROC.
+    Figure 2 – confusion matrix.
+    Figure 3 – per-user rank at the EER threshold.
     """
     title_sfx     = f"  [{csv_label}]" if csv_label else ""
     eer_threshold = metrics["EER_threshold"]
 
-    # ── Figúra 1: Verifikačné metriky (2×2) ──────────────────────────────────
+    # Figure 1: verification metrics (2×2)
     fig1 = plt.figure(figsize=(16, 10))
     fig1.suptitle(f"Behavica – {eval_name}: Verifikačné metriky{title_sfx}",
                   fontsize=16, fontweight="bold", y=0.98)
@@ -299,7 +254,7 @@ def visualize_eval(metrics, genuine, impostor,
     _plot_per_user_scores(fig1.add_subplot(gs1[1, 0]), y_true, y_proba, rf_classes, eer_threshold)
     _plot_roc(fig1.add_subplot(gs1[1, 1]), metrics)
 
-    # ── Figúra 2: Konfúzna matica ────────────────────────────────────────────
+    # Figure 2: confusion matrix
     n_users = len(rf_classes)
     fig2_size = max(10, n_users * 0.45 + 3)
     fig2    = plt.figure(figsize=(fig2_size, fig2_size))
@@ -309,9 +264,9 @@ def visualize_eval(metrics, genuine, impostor,
     _plot_confusion(ax2, y_true, y_pred, rf_classes, eval_name)
     fig2.subplots_adjust(left=0.18, bottom=0.18, right=0.95, top=0.92)
 
-    # ── Figúra 3: Per-user rank scatter (portrait pre A4) ────────────────────
-    #   užšia šírka  → stĺpce (rank 1..N) sú vizuálne tesnejšie pri sebe
-    #   väčšia výška → riadky (jednotliví submissioni) majú viac priestoru
+    # Figure 3: per-user rank scatter (portrait, fits A4)
+    #   narrower width → rank columns are visually closer
+    #   taller height  → each submission row gets more space
     fig3 = plt.figure(figsize=(6, max(12, len(y_true) * 0.030 + 3)))
     fig3.suptitle(f"Behavica – {eval_name}: Per-user rank{title_sfx}",
                   fontsize=15, fontweight="bold", y=0.99)
@@ -322,17 +277,13 @@ def visualize_eval(metrics, genuine, impostor,
 
 def plot_feature_importance(rf_model, feature_names, csv_label: str = "",
                             title_suffix: str = ""):
-    """
-    Feature importance – horizontálny bar chart VŠETKÝCH príznakov.
+    """Horizontal bar chart of Gini feature importance for ALL features.
 
-    Gini importance = priemerné zníženie nečistoty v strome.
-    Vyššia = príznak lepšie rozlišuje používateľov.
-
-    Farby podľa zdrojového CSV:
-      červená  → sensor_data.csv   (sd_*)
-      modrá    → touch_points.csv  (tp_*)
-      zelená   → keystrokes.csv    (ks_*)
-      oranžová → submissions_basic.csv
+    Color by source CSV:
+      red    → sensor_data.csv   (sd_*)
+      blue   → touch_points.csv  (tp_*)
+      green  → keystrokes.csv    (ks_*)
+      orange → submissions_basic.csv
     """
     from matplotlib.patches import Patch
 
@@ -385,5 +336,5 @@ def plot_feature_importance(rf_model, feature_names, csv_label: str = "",
 
 
 def show_all():
-    """Zobrazí všetky vygenerované figúry naraz."""
+    """Shows all generated figures."""
     plt.show()

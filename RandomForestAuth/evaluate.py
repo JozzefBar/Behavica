@@ -1,33 +1,26 @@
 """
-Behavica – Evaluácia behaviorálnej biometrie (Random Forest)
-=============================================================
+Behavica – behavioral biometrics evaluation (Random Forest).
 
-Čo tento skript robí:
-  1. Načíta features CSV (výstup z extract_features.py).
-  2. Spustí DVE nezávislé evaluácie:
-     a) Stratified 5-Fold CV – štandardná metrika, porovnateľná s literatúrou.
-     b) Temporálna evaluácia – chronologický split (train sub 2–11, test 12–15),
-        simuluje reálne nasadenie a dáva realistickejšie výsledky.
-  3. Vypočíta biometrické metriky: TAR, FAR, FRR, EER, AUC, Accuracy.
-  4. Zobrazí prehľadné tabuľky a demo autentifikácie.
-  5. Vygeneruje 6 figúr s grafmi (2 per evaluácia + 2 feature importance).
+Two independent evaluations:
+  a) Stratified 5-Fold CV  – standard, literature-comparable metric.
+  b) Temporal evaluation   – chronological split (train sub 2–11, test 12–15),
+                             simulates real deployment, more realistic results.
 
-Prečo dve evaluácie:
-  5-Fold CV náhodne miešavoľa submissiony medzi train/test. Keďže všetkých
-  14 submissionov jedného používateľa pochádza z krátkeho obdobia (rovnaká
-  session), test vzorky sú veľmi podobné tréningovým → metriky sú optimisticky
-  skreslené. Temporálna evaluácia to rieši chronologickým rozdelením,
-  čím odhaľuje reálnu generalizačnú schopnosť modelu.
+Produces TAR/FAR/FRR/EER/AUC/Accuracy, console tables, demo authentications,
+and 6 figures (2 per eval + 2 feature importance).
 
-Ako spustiť:
-  python evaluate.py                                    ← pýta sa na CSV
-  python evaluate.py features_extracted.csv             ← konkrétny CSV
-  python evaluate.py ablation_csvs/len_senzory.csv      ← len senzory
+Why two evaluations: 5-Fold CV shuffles submissions; all 14 submissions per
+user come from one short session, so test samples are very similar to train
+samples and metrics are optimistically biased. The temporal split exposes
+real generalization capability.
 
-Predpoklady:
-  - Súbor user_metadata.csv musí byť v BehavicaExport/
-    (potrebný pre email_map a per-user výpisy)
-  - CSV musí mať stĺpce: userId, submissionNumber, + príznaky
+Run:
+  python evaluate.py                                    ← asks for CSV
+  python evaluate.py features_extracted.csv
+  python evaluate.py ablation_csvs/len_senzory.csv
+
+Requires user_metadata.csv in BehavicaExport/; CSV must contain userId,
+submissionNumber + feature columns.
 """
 
 import sys
@@ -38,8 +31,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import StratifiedKFold
 import warnings
 
-# Potlačíme len nepodstatné sklearn varovania (FutureWarning, DeprecationWarning)
-# UndefinedMetricWarning a iné dôležité varovania zostávajú viditeľné
+# Suppress only non-essential sklearn/numpy warnings;
+# UndefinedMetricWarning and other important ones stay visible.
 warnings.filterwarnings("ignore", category=FutureWarning,      module="sklearn")
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="sklearn")
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="numpy")
@@ -48,15 +41,11 @@ DATA_DIR = Path(__file__).parent.parent / "BehavicaExport"
 LOG_PATH = Path(__file__).parent / "evaluate_log.txt"
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# LOGGING – výstup ide súčasne na konzolu aj do evaluate_log.txt
-# ══════════════════════════════════════════════════════════════════════════════
-#
-# Log sa PREPISUJE pri každom spustení (mode="w"), takže vždy obsahuje len
-# posledný beh. Toto je užitočné pre rýchle porovnanie výsledkov.
+# Logging – output goes to console and evaluate_log.txt simultaneously.
+# The log is overwritten on each run (mode="w").
 
 class _Tee:
-    """Zapisuje výstup súčasne na konzolu (stdout) aj do súboru."""
+    """Writes output to both console (stdout) and a file."""
     def __init__(self, file):
         self._file   = file
         self._stdout = sys.stdout
@@ -69,76 +58,52 @@ class _Tee:
 
 
 def _start_logging():
-    """Presmeruje stdout cez _Tee → konzola + evaluate_log.txt."""
+    """Routes stdout through _Tee → console + evaluate_log.txt."""
     log_file = open(LOG_PATH, "w", encoding="utf-8")
     sys.stdout = _Tee(log_file)
     return log_file
 
 
 def _stop_logging(log_file):
-    """Obnoví pôvodný stdout a zatvorí log súbor."""
+    """Restores stdout and closes the log file."""
     sys.stdout = sys.stdout._stdout
     log_file.close()
     print(f"  → Log uložený: {LOG_PATH}")
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 1. VÝPOČET BIOMETRICKÝCH METRÍK
-# ══════════════════════════════════════════════════════════════════════════════
-#
-# Štandardné biometrické metriky:
-#
-#   TA (True Accept)   = genuine submission bol SPRÁVNE akceptovaný
-#   FR (False Reject)  = genuine submission bol NESPRÁVNE odmietnutý
-#   FA (False Accept)  = impostor submission bol NESPRÁVNE akceptovaný
-#   TR (True Reject)   = impostor submission bol SPRÁVNE odmietnutý
-#
-#   TAR = TA / (TA + FR)   → miera správneho prijatia (True Accept Rate)
-#   FAR = FA / (FA + TR)   → miera falošného prijatia (False Accept Rate)
-#   FRR = FR / (TA + FR)   → miera falošného zamietnutia (False Reject Rate)
-#                          → pozor: FRR = 1 − TAR
-#
-#   EER (Equal Error Rate) = bod, kde FAR = FRR
-#     → čím nižší EER, tým lepší systém (ideálne EER = 0%)
-#
-#   Accuracy = (TA + TR) / (TA + FR + FA + TR)  [pri prahu EER]
-#
-#   AUC (Area Under ROC Curve) = plocha pod krivkou TAR vs. FAR
-#     → 1.0 = perfektný systém, 0.5 = náhodný klasifikátor
-# ══════════════════════════════════════════════════════════════════════════════
+# Biometric metrics:
+#   TA/FR/FA/TR – true/false accept/reject counts.
+#   TAR = TA / (TA + FR)   FAR = FA / (FA + TR)   FRR = FR / (TA + FR) = 1 − TAR
+#   EER – threshold where FAR = FRR (lower = better; ideally 0%).
+#   Accuracy = (TA + TR) / (TA + FR + FA + TR) at the EER threshold.
+#   AUC – area under TAR vs. FAR (1.0 = perfect, 0.5 = random).
 
 def compute_metrics(genuine_scores: np.ndarray, impostor_scores: np.ndarray) -> dict:
-    """
-    Sweepuje cez prahy a vypočíta TAR, FAR, FRR pri každom prahu.
-    Nájde EER (kde FAR ≈ FRR) a AUC (plocha pod ROC krivkou).
+    """Sweeps thresholds, returns TAR/FAR/FRR per threshold, plus EER and AUC.
 
-    Logika prahového rozhodovania:
-      score >= prah → AKCEPTUJ
-      score <  prah → ODMIETNI
+    Decision rule: score >= threshold → ACCEPT, otherwise REJECT.
     """
     all_scores = np.concatenate([genuine_scores, impostor_scores])
-    # 1000 rovnomerne rozdelených prahov
     thresholds = np.linspace(all_scores.min(), all_scores.max(), 1000)
 
     tars, fars, frrs = [], [], []
     for thr in thresholds:
-        # Počet prípadov pre každú kategóriu
-        TA = np.sum(genuine_scores >= thr)      # genuine  akceptovaný → správne
-        FR = np.sum(genuine_scores <  thr)      # genuine  odmietnutý  → chyba
-        FA = np.sum(impostor_scores >= thr)     # impostor akceptovaný → chyba (bezpečnostné riziko!)
-        TR = np.sum(impostor_scores <  thr)     # impostor odmietnutý  → správne
+        TA = np.sum(genuine_scores >= thr)
+        FR = np.sum(genuine_scores <  thr)
+        FA = np.sum(impostor_scores >= thr)     # security risk if elevated
+        TR = np.sum(impostor_scores <  thr)
         tars.append(TA / max(TA + FR, 1))
         fars.append(FA / max(FA + TR, 1))
         frrs.append(FR / max(TA + FR, 1))
 
     tars = np.array(tars); fars = np.array(fars); frrs = np.array(frrs)
 
-    # EER = prah kde |FAR - FRR| je minimálne
+    # EER = threshold minimizing |FAR − FRR|
     eer_idx = int(np.argmin(np.abs(fars - frrs)))
     eer     = float((fars[eer_idx] + frrs[eer_idx]) / 2)
     eer_thr = float(thresholds[eer_idx])
 
-    # Metriky pri EER prahu
+    # Metrics at the EER threshold
     thr = eer_thr
     TA = int(np.sum(genuine_scores >= thr))
     FR = int(np.sum(genuine_scores <  thr))
@@ -161,55 +126,36 @@ def compute_metrics(genuine_scores: np.ndarray, impostor_scores: np.ndarray) -> 
     }
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 2. RANDOM FOREST – STRATIFIED 5-FOLD CROSS-VALIDÁCIA
-# ══════════════════════════════════════════════════════════════════════════════
+# Random Forest – Stratified 5-Fold cross-validation
 
 def run_rf_cv(X_raw: np.ndarray, y: np.ndarray):
-    """
-    Stratified 5-Fold cross-validácia s Random Forest klasifikátorom.
+    """Stratified 5-Fold CV with a Random Forest classifier.
 
-    Dataset sa rozdelí na 5 foldov – každý fold má ~80% tréning a ~20% test.
-    "Stratified" = každý fold obsahuje proporcionálne zastúpenie všetkých
-    používateľov v train aj test časti.
+    Each fold uses ~80% train / ~20% test, with proportional representation
+    of all users in both parts.
 
-    POZOR: Táto metrika je optimistická – submissiony z rovnakej session sa
-    môžu ocitnúť v train aj test folde, čo nafukuje presnosť. Pre realistickejší
-    odhad produkčnej výkonnosti pozri run_temporal_eval().
+    Caveat: optimistic metric — submissions from the same session can land in
+    both train and test folds. For a more realistic estimate see
+    run_temporal_eval().
 
-    Pre každý fold:
-      – natrénuje RF na tréningových dátach
-      – predikuje triedy a pravdepodobnosti pre testovaciu sadu (~20%)
+    A final RF is also trained on ALL data (used for feature importance,
+    demo authentication and export).
 
-    Na konci natrénuje finálny RF na VŠETKÝCH dátach
-    (pre feature importance, demo autentifikáciu a export).
+    Note: StandardScaler was removed; RF is scale-invariant (threshold-based).
 
-    Poznámka: StandardScaler bol odstránený – Random Forest je invariantný voči
-    škálovaniu (rozhoduje sa na základe prahov, nie vzdialeností), takže scaler
-    nemal žiadny vplyv na výsledky.
-
-    Vracia:
-      y_true        – skutočné triedy (userId) testovacích submissionov
-      y_pred        – predikované triedy
-      y_proba       – matica pravdepodobností [n_samples × n_classes]
-      rf_classes    – poradie tried v y_proba
-      rf            – finálny RF model (natrénovaný na všetkých dátach)
-      eer_threshold – EER prah z CV skóre (exportovaný do model.pkl)
+    Returns: (y_true, y_pred, y_proba, rf_classes, final_rf, eer_threshold).
     """
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
-    # RF parametre definované raz ako slovník – neopakujú sa a ľahko sa menia.
-    # max_depth=10 a min_samples_leaf=5 sú prísnejšia regularizácia, ktorá zabraňuje
-    # modelu zapamätať si session-specific vzory (všetkých 14 submissionov jedného
-    # používateľa pochádza z krátkeho obdobia → sú si veľmi podobné).
-    # Pri voľnejších parametroch (depth=20, leaf=3) model dosahoval ~99.8% lokálne,
-    # ale v produkcii výrazne horšie – stromy sa naučili jemné rozdiely medzi
-    # submissionmi z rovnakej session, ktoré v reálnom použití neexistujú.
+    # Stricter regularization (max_depth=10, min_samples_leaf=5) prevents the
+    # model from memorizing session-specific patterns — all 14 submissions per
+    # user come from one short session and are very similar. Looser params
+    # (depth=20, leaf=3) reached ~99.8% locally but generalized poorly in prod.
     rf_params = dict(
         n_estimators=300,
-        max_depth=10,          # obmedzenie hĺbky (20 = príliš voľné pre ~500 vzoriek)
-        min_samples_leaf=5,    # min. 5 vzoriek v liste (3 = stále overfit)
-        max_features="sqrt",   # sqrt príznakov pri každom splite
+        max_depth=10,
+        min_samples_leaf=5,
+        max_features="sqrt",
         random_state=42,
     )
 
@@ -223,12 +169,12 @@ def run_rf_cv(X_raw: np.ndarray, y: np.ndarray):
         X_tr, X_te = X_raw[train_idx], X_raw[test_idx]
         y_tr, y_te = y[train_idx],     y[test_idx]
 
-        # Nový RF objekt v každom folde – čistejší kód, žiadne prekrývanie stavu
+        # Fresh RF per fold – no state carryover
         fold_rf = RandomForestClassifier(**rf_params)
         fold_rf.fit(X_tr, y_tr)
         preds        = fold_rf.predict(X_te)
         probas       = fold_rf.predict_proba(X_te)
-        fold_classes = fold_rf.classes_   # triedy sú rovnaké vo všetkých foldoch (stratified)
+        fold_classes = fold_rf.classes_   # same across folds (stratified)
 
         correct += int(np.sum(preds == y_te))
         total   += len(y_te)
@@ -248,14 +194,13 @@ def run_rf_cv(X_raw: np.ndarray, y: np.ndarray):
     y_pred  = np.array(y_pred_list)
     y_proba = np.array(y_proba_list)
 
-    # EER prah vypočítaný z CV skóre – nie z tréningových dát.
-    # Tento prah sa exportuje do model.pkl a používa v main.py namiesto hardcoded 0.5.
+    # EER threshold from CV scores (not training data); exported to model.pkl
+    # and used in main.py instead of a hardcoded 0.5.
     g_cv, i_cv    = rf_verification_scores(y_true, y_proba, fold_classes)
     cv_metrics    = compute_metrics(g_cv, i_cv)
     eer_threshold = cv_metrics["EER_threshold"]
 
-    # Finálny model natrénovaný na celých dátach
-    # → slúži pre feature importance a export do model.pkl
+    # Final model on full data – used for feature importance and export
     final_rf = RandomForestClassifier(**rf_params)
     final_rf.fit(X_raw, y)
 
@@ -263,70 +208,44 @@ def run_rf_cv(X_raw: np.ndarray, y: np.ndarray):
 
 
 def rf_verification_scores(y_true, y_proba, rf_classes, top_k=3):
-    """
-    Konvertuje LOO/CV pravdepodobnosti RF na genuine a impostor skóre.
+    """Converts CV probabilities to genuine and impostor scores.
 
-    Pre každý testovací submission od používateľa u:
-      genuine score  = P(u)    – pravdepodobnosť, že RF zaradí submission správne
-      impostor score = top-K najvyšších P(v≠u) – najsilnejší konkurenti
+    For each test submission by user u:
+      genuine  = P(u)
+      impostor = top-K of P(v≠u)  (strongest competitors only)
 
-    Prečo top-K namiesto všetkých:
-      Pri 26 triedach väčšina P(v≠u) je ~0.00-0.04 (triviálne nízke), pretože
-      RF rozdeľuje 1.0 medzi 26 tried. Tieto triviálne nulové skóre umelo
-      znižujú FAR a nafukujú metriky. Top-K (default=3) berie len najsilnejších
-      konkurentov → realistickejšie skóre simulujúce reálny útok.
+    Why top-K instead of all: with many classes most P(v≠u) are tiny
+    (~0.00–0.04) because RF splits 1.0 across many users; including them
+    artificially lowers FAR. Top-K (default 3) keeps only the realistic
+    threats.
 
-    Celkovo: N genuine skóre + N×top_k impostor skóre.
+    Returns N genuine + N×top_k impostor scores.
     """
     genuine, impostor = [], []
     for yt, proba in zip(y_true, y_proba):
         cls_idx = int(np.where(rf_classes == yt)[0][0])
         genuine.append(proba[cls_idx])
-        # Zozbierame skóre všetkých tried okrem skutočnej a zoradíme zostupne
         imp_scores = sorted(
             [proba[j] for j, c in enumerate(rf_classes) if c != yt],
             reverse=True,
         )
-        # Vezmeme len top-K najsilnejších impostrov (najrealistickejšie hrozby)
         impostor.extend(imp_scores[:top_k])
     return np.array(genuine), np.array(impostor)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 2b. TEMPORÁLNA EVALUÁCIA – CHRONOLOGICKÉ ROZDELENIE TRAIN/TEST
-# ══════════════════════════════════════════════════════════════════════════════
-#
-# Prečo je to potrebné:
-#   5-Fold CV náhodne miešavoľa submissiony medzi train a test. Keďže všetkých
-#   14 submissionov jedného používateľa pochádza z krátkeho obdobia (jedna session),
-#   test vzorky sú prakticky kópie tréningových → metriky sú optimisticky skreslené.
-#
-#   Temporálna evaluácia rozdelí dáta chronologicky:
-#     TRAIN = submissiony 2–11 (prvých 10 opakovaní po vynechaní 1.)
-#     TEST  = submissiony 12–15 (posledné 4 opakovania)
-#
-#   Toto simuluje reálnu situáciu: model sa natrénuje na zozbieraných dátach
-#   a neskôr prichádza nový submission, ktorý nebol súčasťou tréningových dát.
-#   Výsledky sú preto bližšie k reálnej výkonnosti v produkcii.
-# ══════════════════════════════════════════════════════════════════════════════
+# Temporal evaluation – chronological train/test split.
+# Trains on submissions 2–11 and tests on 12–15. Reveals real generalization
+# to future behavior (not just other samples from the same session).
 
 def run_temporal_eval(df: pd.DataFrame, feature_cols: list):
+    """Chronological train/test eval — older submissions train, newer test.
+
+    Split (submission 1 already dropped in extract_features.py):
+      TRAIN = sub 2–11 (~10 per user)
+      TEST  = sub 12–15 (~4 per user)
+
+    Same return shape as run_rf_cv for consistent downstream handling.
     """
-    Chronologická train/test evaluácia – trénuje na starších, testuje na novších submissionoch.
-
-    Na rozdiel od 5-fold CV, kde sa náhodne miešajú submissiony z rovnakej session,
-    tu je rozdelenie striktne chronologické. Toto odhaľuje, ako dobre model
-    generalizuje na budúce správanie používateľa – nie len na iné vzorky
-    z rovnakej session.
-
-    Rozdelenie:
-      TRAIN = submissiony 2–11 (index po vynechaní 1.) → ~10 per user
-      TEST  = submissiony 12–15                         → ~4 per user
-
-    Vracia rovnakú štruktúru ako run_rf_cv pre konzistentné vyhodnotenie.
-    """
-    # Submissiony 2–11 na tréning, 12–15 na test
-    # (submission 1 bol už odstránený v extract_features.py)
     train_mask = df["submissionNumber"] <= 11
     test_mask  = df["submissionNumber"] > 11
 
@@ -338,7 +257,7 @@ def run_temporal_eval(df: pd.DataFrame, feature_cols: list):
     print(f"  Temporálny split: train={len(X_tr_raw)} (sub 2–11)  "
           f"test={len(X_te_raw)} (sub 12–15)")
 
-    # Rovnaké RF parametre ako v run_rf_cv
+    # Same RF params as run_rf_cv
     rf_params = dict(
         n_estimators=300,
         max_depth=10,
@@ -356,7 +275,7 @@ def run_temporal_eval(df: pd.DataFrame, feature_cols: list):
     acc = float(np.mean(y_pred == y_te))
     print(f"  Temporálna identifikačná presnosť: {acc*100:.1f}%\n")
 
-    # EER threshold z temporálnych skóre – pre demo verifikáciu
+    # EER threshold from temporal scores – used by the demo verification
     g_t, i_t    = rf_verification_scores(y_te, y_proba, rf.classes_)
     t_metrics   = compute_metrics(g_t, i_t)
     eer_threshold = t_metrics["EER_threshold"]
@@ -364,29 +283,17 @@ def run_temporal_eval(df: pd.DataFrame, feature_cols: list):
     return y_te, y_pred, y_proba, rf.classes_, eer_threshold, rf
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 3. AUTENTIFIKÁCIA – POUŽITIE NA NOVÝ SUBMISSION
-# ══════════════════════════════════════════════════════════════════════════════
+# Authentication – use on a single submission
 
 def authenticate(raw_feature_vector: np.ndarray,
                  rf_model: RandomForestClassifier,
                  email_map: dict,
                  claimed_user_id=None,
                  eer_threshold: float = 0.5) -> dict:
-    """
-    Autentifikuje jeden submission pomocou natrénovaného Random Forest modelu.
+    """Authenticates one submission against a trained Random Forest.
 
-    Postup:
-      1. RF predikuje pravdepodobnosti pre každého používateľa.
-      2. P(claimed_user) = skóre podobnosti pre verifikáciu.
-
-    Parametre:
-      raw_feature_vector  – 1D numpy pole príznakov
-      rf_model            – natrénovaný RandomForestClassifier
-      email_map           – slovník {userId: email} pre čitateľné výstupy
-      claimed_user_id     – ak zadaný → verifikácia (1:1)
-                            inak       → identifikácia (1:N)
-      eer_threshold       – EER prah z CV (rovnaký ako v Cloud Function main.py)
+    With claimed_user_id → verification (1:1); without → identification (1:N).
+    eer_threshold must match the one used in Cloud Function main.py.
     """
     proba = rf_model.predict_proba(raw_feature_vector.reshape(1, -1))[0]
 
@@ -404,19 +311,18 @@ def authenticate(raw_feature_vector: np.ndarray,
     }
 
     if claimed_user_id:
-        # VERIFIKÁCIA: "Som používateľ X, je to naozaj ja?"
+        # Verification: "I claim to be user X – am I really?"
         claimed_score = scores.get(str(claimed_user_id), 0.0)
         result.update({
             "claimed_user":   claimed_user_id,
             "claimed_email":  email_map.get(str(claimed_user_id), "?"),
             "score":          round(claimed_score, 4),
             "confidence_pct": pct.get(str(claimed_user_id), 0.0),
-            # Akceptovaný = best_user je claimed_user A skóre >= EER prah
-            # Konzistentné s Cloud Function (main.py) – rovnaká podmienka
+            # Same condition as Cloud Function main.py
             "accepted":       best_user == str(claimed_user_id) and claimed_score >= eer_threshold,
         })
     else:
-        # IDENTIFIKÁCIA: "Kto z N používateľov to je?"
+        # Identification: "Which of the N users is this?"
         result.update({
             "predicted_user":  best_user,
             "predicted_email": email_map.get(best_user, "?"),
@@ -426,7 +332,7 @@ def authenticate(raw_feature_vector: np.ndarray,
 
 
 def print_auth_result(res: dict):
-    """Vypíše výsledok autentifikácie do konzoly s vizuálnym bar chartom."""
+    """Prints an authentication result to the console with a small bar chart."""
     print("\n" + "─" * 52)
     if res["mode"] == "identification":
         print(f"  IDENTIFIKÁCIA")
@@ -447,16 +353,14 @@ def print_auth_result(res: dict):
     print("─" * 52)
 
 
-    # Vizualizácia je v samostatnom module visualize.py
+    # Visualization lives in visualize.py
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 5. KONZOLOVÝ VÝPIS METRÍK
-# ══════════════════════════════════════════════════════════════════════════════
+# Console metrics table
 
 def print_metrics_table(m_rf, rf_acc, meta, y_true, y_pred, csv_label: str = "",
                         eval_name: str = ""):
-    """Vypíše prehľadnú tabuľku biometrických metrík do konzoly."""
+    """Prints a readable table of biometric metrics."""
     eer_idx   = int(np.argmin(np.abs(m_rf["FAR"] - m_rf["FRR"])))
     email_map = dict(zip(meta["userId"], meta["email"]))
 
@@ -500,13 +404,11 @@ def print_metrics_table(m_rf, rf_acc, meta, y_true, y_pred, csv_label: str = "",
     print("═" * 56)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# MAIN
-# ══════════════════════════════════════════════════════════════════════════════
+# Main
 
 def _print_demo(y_true, y_proba, rf_classes, eer_threshold, email_map,
                 eval_name: str = ""):
-    """Vypíše demo autentifikáciu – prvú predikciu za každého používateľa."""
+    """Prints a demo authentication – first prediction per user."""
     classes_l = list(rf_classes)
     label = f" ({eval_name})" if eval_name else ""
     print(f"\n  DEMO VERIFIKÁCIA{label}: Prvá predikcia za každého používateľa")
@@ -544,7 +446,7 @@ def _print_demo(y_true, y_proba, rf_classes, eer_threshold, email_map,
 
 
 def main():
-    # ── Výber CSV súboru ───────────────────────────────────────────────────────
+    # CSV selection
     script_dir = Path(__file__).parent
 
     if len(sys.argv) > 1:
@@ -577,7 +479,7 @@ def main():
 
     csv_label = csv_path.name
 
-    # ── Zapnúť logging (konzola + evaluate_log.txt) ──────────────────────────
+    # Start logging (console + evaluate_log.txt)
     log_file = _start_logging()
 
     try:
@@ -587,12 +489,11 @@ def main():
 
 
 def _run_evaluation(csv_path: Path, csv_label: str):
-    """Hlavná logika evaluácie – oddelená od I/O výberu súboru."""
+    """Core evaluation logic – separated from CSV picking I/O."""
     from visualize import visualize_eval, plot_feature_importance, show_all
 
     print(f"\nNačítavam: {csv_path}")
 
-    # ── Načítanie features CSV ─────────────────────────────────────────────────
     df = pd.read_csv(csv_path)
     if "userId" not in df.columns or "submissionNumber" not in df.columns:
         print("CSV musí obsahovať stĺpce 'userId' a 'submissionNumber'.")
@@ -608,9 +509,7 @@ def _run_evaluation(csv_path: Path, csv_label: str):
     meta = pd.read_csv(DATA_DIR / "user_metadata.csv")
     email_map = {str(k): v for k, v in zip(meta["userId"], meta["email"])}
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # EVALUÁCIA 1: Stratified 5-Fold CV
-    # ══════════════════════════════════════════════════════════════════════════
+    # Evaluation 1: Stratified 5-Fold CV
     print("Spúšťam RF Stratified 5-Fold cross-validáciu ...")
     y_true, y_pred, y_proba, rf_classes, rf_model, eer_threshold = run_rf_cv(X_raw, y)
     rf_acc     = float(np.mean(y_true == y_pred))
@@ -623,9 +522,7 @@ def _run_evaluation(csv_path: Path, csv_label: str):
     _print_demo(y_true, y_proba, rf_classes, eer_threshold, email_map,
                 eval_name="5-Fold CV")
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # EVALUÁCIA 2: Temporálna (chronologický split)
-    # ══════════════════════════════════════════════════════════════════════════
+    # Evaluation 2: Temporal (chronological split)
     print("\nSpúšťam temporálnu evaluáciu (train=sub 2–11, test=sub 12–15) ...")
     t_true, t_pred, t_proba, t_classes, t_eer_thr, t_rf_model = run_temporal_eval(df, feature_cols)
     t_acc     = float(np.mean(t_true == t_pred))
@@ -638,25 +535,23 @@ def _run_evaluation(csv_path: Path, csv_label: str):
     _print_demo(t_true, t_proba, t_classes, t_eer_thr, email_map,
                 eval_name="Temporálna")
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # VIZUALIZÁCIE – obe evaluácie + feature importance
-    # ══════════════════════════════════════════════════════════════════════════
+    # Visualizations: both evaluations + feature importance
     print("\nGenerujem vizualizácie ...")
 
-    # Figúry 1-2: 5-Fold CV (distribúcia skóre, violin, TAR/FAR/FRR, ROC, confusion)
+    # Figures 1-2: 5-Fold CV (score distribution, violin, TAR/FAR/FRR, ROC, confusion)
     visualize_eval(m_rf, g_rf, i_rf, y_true, y_pred, y_proba, rf_classes,
                    eval_name="5-Fold CV", csv_label=csv_label)
 
-    # Figúry 3-4: Temporálna evaluácia (rovnaké grafy)
+    # Figures 3-4: Temporal evaluation (same plots)
     visualize_eval(t_metrics, t_g, t_i, t_true, t_pred, t_proba, t_classes,
                    eval_name="Temporálna (train 2–11, test 12–15)",
                    csv_label=csv_label)
 
-    # Figúra 5: Feature importance – 5-Fold CV model
+    # Figure 5: Feature importance – 5-Fold CV model
     plot_feature_importance(rf_model, feature_cols, csv_label,
                             title_suffix="(5-Fold CV model)")
 
-    # Figúra 6: Feature importance – temporálny model (train sub 2–11)
+    # Figure 6: Feature importance – temporal model (train sub 2–11)
     plot_feature_importance(t_rf_model, feature_cols, csv_label,
                             title_suffix="(temporálny model – train sub 2–11)")
 
