@@ -26,9 +26,25 @@ stranger tries to authenticate on the victim's own phone.
 
 ## Screenshots
 
-| Main screen | Metadata | Tasks | Drag & drop test |
-|:---:|:---:|:---:|:---:|
-| ![Main screen](img/main_screen.png) | ![Metadata](img/metadata_screen.png) | ![Tasks](img/submission_screen.png) | ![Drag test](img/drag_test.png) |
+<p>
+  <img src="img/main_screen.png" alt="Main screen" width="260">
+  <br><em>Main screen</em>
+</p>
+
+<p>
+  <img src="img/metadata_screen.png" alt="Metadata screen" width="260">
+  <br><em>Metadata (age, gender, dominant hand)</em>
+</p>
+
+<p>
+  <img src="img/submission_screen.png" alt="Tasks screen" width="260">
+  <br><em>Behavioral tasks (one repetition)</em>
+</p>
+
+<p>
+  <img src="img/drag_test.png" alt="Drag &amp; drop test" width="420">
+  <br><em>Drag &amp; drop test</em>
+</p>
 
 ## Project structure
 
